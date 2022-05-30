@@ -60,7 +60,7 @@ client.on('interactionCreate', async interaction => {
       return;
     }
 
-    // Potentially resolving the address
+    // Potentially resolving the ENS address
     if (targetAddress.indexOf('.') >= 0) {
       await interaction.editReply(`Resolving ENS ${targetAddress}...`);
       try {
@@ -91,7 +91,10 @@ client.on('interactionCreate', async interaction => {
       await transaction.wait(1);
       await interaction.editReply(`Transaction confirmed with 1 block confirmation.`);
       console.log(`32.5 GoETH have been sent to ${targetAddress} for @${userTag} (${userId}).`);
-      await interaction.followUp(`32.5 GoETH have been sent to ${targetAddress} for @${userTag}. Explore that transaction on ${explorerTxURL}`);
+
+      const remainingRequests = faucetBalance.div(requestAmount).sub(1);
+
+      await interaction.followUp(`32.5 GoETH have been sent to ${targetAddress} for @${userTag}. Explore that transaction on ${explorerTxURL}\n\nThere are ${remainingRequests} remaining requests with the current balance.`);
     } catch (error) {
       console.log(`Error while trying to send 32.5 GoETH to ${targetAddress} for @${userTag} (${userId}). ${error}`);
       await interaction.followUp(`Error while trying to send 32.5 GoETH to ${targetAddress} for @${userTag}. ${error}`);
