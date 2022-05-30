@@ -26,6 +26,29 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@discordjs/collection@npm:^0.7.0-dev":
+  version: 0.7.0-dev.1653480253-68d5169
+  resolution: "@discordjs/collection@npm:0.7.0-dev.1653480253-68d5169"
+  checksum: 4fb1adab0000830dd6d5be6866028cda1e8242873e138440717c5573ddca3246981bf661ec988e748e4759add62aed9251e9a84b7a2999774ae4e9f971318dac
+  languageName: node
+  linkType: hard
+
+"@discordjs/rest@npm:^0.4.1":
+  version: 0.4.1
+  resolution: "@discordjs/rest@npm:0.4.1"
+  dependencies:
+    "@discordjs/collection": ^0.7.0-dev
+    "@sapphire/async-queue": ^1.3.1
+    "@sapphire/snowflake": ^3.2.1
+    "@types/node-fetch": ^2.6.1
+    discord-api-types: ^0.29.0
+    form-data: ^4.0.0
+    node-fetch: ^2.6.7
+    tslib: ^2.3.1
+  checksum: 93822a9d870d32d52a3a289e703160509a50e89205cc5db651b7a45f524b053d0fa827805e292a64dc1230e43b72a245e502a5d1d937cebd011c82d55cad5aa0
+  languageName: node
+  linkType: hard
+
 "@ethersproject/abi@npm:5.6.3, @ethersproject/abi@npm:^5.6.3":
   version: 5.6.3
   resolution: "@ethersproject/abi@npm:5.6.3"
@@ -465,6 +488,13 @@ __metadata:
   version: 2.2.0
   resolution: "@sapphire/shapeshift@npm:2.2.0"
   checksum: f6cdc706548b3c5acbcb24878bacfd5cc28629d72900bb53cf54911da3a42199a479c6875486824b17106360b7dc3c156f509ef9b04190fefa42d241ddec2696
+  languageName: node
+  linkType: hard
+
+"@sapphire/snowflake@npm:^3.2.1":
+  version: 3.2.2
+  resolution: "@sapphire/snowflake@npm:3.2.2"
+  checksum: 315fecef4738092c2a2f3509b132b811fcbfa6c98d5d45d951adaf3ca21608be69043bcc137cc6933a7c3e55cbdc066daa5bb484603e6575422b335445b59315
   languageName: node
   linkType: hard
 
@@ -1324,6 +1354,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"discord-api-types@npm:^0.29.0":
+  version: 0.29.0
+  resolution: "discord-api-types@npm:0.29.0"
+  checksum: 1ca74693b4e9c611c3de17f604714425d81d537ee81669d040a8c37fb23fb634a6918dd7d21056ccb90a3f4741bc2750509f6c8dd922bf2b3ed544d18bd0f32a
+  languageName: node
+  linkType: hard
+
 "discord-api-types@npm:^0.30.0":
   version: 0.30.0
   resolution: "discord-api-types@npm:0.30.0"
@@ -1335,6 +1372,13 @@ __metadata:
   version: 0.31.2
   resolution: "discord-api-types@npm:0.31.2"
   checksum: 928d4f57f4c1ace0baf1d3b2c3ab4a4a5107f100217ce889a6e00ad365115fd328a0b922dbc62af6b6ccac9552ffd7ec3d07f4c8820502c5b55d9f2e5382dfba
+  languageName: node
+  linkType: hard
+
+"discord-api-types@npm:^0.33.1":
+  version: 0.33.1
+  resolution: "discord-api-types@npm:0.33.1"
+  checksum: dd1371c5b00312e5ef10f8664e0947c9e10b5b7d6b299f4e8aabb93d6eeddf6f93c6c189c88e9c7a7680d349436114d2baec9b2fbb79b4c72bfde2a3ec3ceaff
   languageName: node
   linkType: hard
 
@@ -1544,8 +1588,11 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "ethstaker-goeth-bot@workspace:."
   dependencies:
+    "@discordjs/builders": ^0.13.0
+    "@discordjs/rest": ^0.4.1
     "@tsconfig/node16": ^1.0.2
     bufferutil: ^4.0.6
+    discord-api-types: ^0.33.1
     discord.js: ^13.7.0
     dotenv: ^16.0.1
     erlpack: ^0.1.4
@@ -2977,7 +3024,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"node-fetch@npm:^2.6.1":
+"node-fetch@npm:^2.6.1, node-fetch@npm:^2.6.7":
   version: 2.6.7
   resolution: "node-fetch@npm:2.6.7"
   dependencies:
