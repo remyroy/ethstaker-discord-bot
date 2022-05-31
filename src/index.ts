@@ -13,6 +13,8 @@ const rateLimitDuration = Duration.fromObject({ weeks: 3 });
 const explorerTxRoot = 'https://goerli.etherscan.io/tx/';
 const db = new Database('db.sqlite');
 
+const existingRequest = new Map<string, boolean>();
+
 const initDb = function(db: Database) {
   return new Promise<void>(async (resolve, reject) => {
     db.serialize(() => {
@@ -138,18 +140,29 @@ client.on('interactionCreate', async interaction => {
     const userMention = Formatters.userMention(userId);
     console.log(`Request-goeth from ${userTag} (${userId}) to ${targetAddress}!`);
 
-    // TODO: mutex on userId
+    // mutex on userId
+    if (existingRequest.get(userId) === true) {
+      console.log(`You already have a pending request. Please wait until your request is completed for @${userTag} (${userId}).`);
+      await interaction.reply({
+        content: `You already have a pending request. Please wait until your request is completed for ${userMention}.`,
+        allowedMentions: { parse: ['users'], repliedUser: false }
+      });
+      return;
+    } else {
+      existingRequest.set(userId, true);
+    }
 
     // Check for user role
     await interaction.reply({ content: 'Checking if you have the proper role...', ephemeral: true });
     const restrictRole = interaction.guild?.roles.cache.find((role) => role.name === process.env.ROLE_NAME);
-    const hasRole = (interaction.member?.roles as GuildMemberRoleManager).cache.find((role) => role.id === restrictRole?.id) !== undefined;
+    const hasRole = restrictRole === undefined || (interaction.member?.roles as GuildMemberRoleManager).cache.find((role) => role.id === restrictRole?.id) !== undefined;
     if (!hasRole) {
       console.log(`You cannot use this command without the ${restrictRole?.name} role for @${userTag} (${userId}).`);
       await interaction.followUp({
         content: `You cannot use this command without the ${restrictRole?.name} role for ${userMention}.`,
         allowedMentions: { parse: ['users'], repliedUser: false }
       });
+      existingRequest.delete(userId);
       return;
     }
 
@@ -164,11 +177,12 @@ client.on('interactionCreate', async interaction => {
         const durRequestAvailable = dtRequestAvailable.diff(DateTime.utc()).shiftTo('days', 'hours').normalize();
         const formattedDuration = durRequestAvailable.toHuman();
 
-        console.log(`You cannot do another request this soon. You will need to wait at least ${formattedDuration} for @${userTag} (${userId}).`);
+        console.log(`You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for @${userTag} (${userId}).`);
         await interaction.followUp({
-          content: `You cannot do another request this soon. You will need to wait at least ${formattedDuration} for ${userMention}.`,
+          content: `You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for ${userMention}.`,
           allowedMentions: { parse: ['users'], repliedUser: false }
         });
+        existingRequest.delete(userId);
         return;
       }
     }
@@ -184,6 +198,7 @@ client.on('interactionCreate', async interaction => {
             content: `No address found for ENS ${targetAddress} for ${userMention}.`,
             allowedMentions: { parse: ['users'], repliedUser: false }
           });
+          existingRequest.delete(userId);
           return;
         }
         targetAddress = resolvedAddress;
@@ -193,6 +208,7 @@ client.on('interactionCreate', async interaction => {
           content: `Error while trying to resolved ENS ${targetAddress} for ${userMention}. ${error}`,
           allowedMentions: { parse: ['users'], repliedUser: false }
         });
+        existingRequest.delete(userId);
         return;
       }
     } else {
@@ -204,6 +220,7 @@ client.on('interactionCreate', async interaction => {
           content: `The wallet address provided (${targetAddress}) is not valid for ${userMention}`,
           allowedMentions: { parse: ['users'], repliedUser: false }
         });
+        existingRequest.delete(userId);
         return
       }
     }
@@ -217,6 +234,7 @@ client.on('interactionCreate', async interaction => {
         content: `The faucet is empty. Please contact an administrator to fill it up. From ${userMention}.`,
         allowedMentions: { parse: ['users'], repliedUser: false }
       });
+      existingRequest.delete(userId);
       return;
     }
 
@@ -244,10 +262,13 @@ client.on('interactionCreate', async interaction => {
         content: `${utils.formatEther(requestAmount)} GoETH have been sent to ${targetAddress} for ${userMention}. Explore that transaction on ${explorerTxURL}\n\nThere are ${remainingRequests} remaining requests with the current balance.`,
         allowedMentions: { parse: ['users'], repliedUser: false },
         flags: MessageFlags.SuppressEmbeds });
+      
+      existingRequest.delete(userId);
 
     } catch (error) {
       console.log(`Error while trying to send ${utils.formatEther(requestAmount)} GoETH to ${targetAddress} for @${userTag} (${userId}). ${error}`);
       await interaction.followUp(`Error while trying to send ${utils.formatEther(requestAmount)} GoETH to ${targetAddress} for ${userMention}. ${error}`);
+      existingRequest.delete(userId);
       return;
     }
 	}
