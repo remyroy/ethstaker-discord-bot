@@ -1,30 +1,118 @@
 import { config } from 'dotenv';
 config();
 
-import { Client, Intents } from 'discord.js';
+import { Client, Intents, Formatters, GuildMemberRoleManager } from 'discord.js';
 import { providers, utils, Wallet } from 'ethers';
+import { Database } from 'sqlite3';
+import { MessageFlags } from 'discord-api-types/v9';
+import { DateTime, Duration } from 'luxon';
 
 const minEthers = utils.parseUnits("33.0", "ether");
 const requestAmount = utils.parseUnits("32.5", "ether");
+const rateLimitDuration = Duration.fromObject({ weeks: 3 });
 const explorerTxRoot = 'https://goerli.etherscan.io/tx/';
+const db = new Database('db.sqlite');
+
+const initDb = function(db: Database) {
+  return new Promise<void>(async (resolve, reject) => {
+    db.serialize(() => {
+      db.run('CREATE TABLE IF NOT EXISTS request (userId TEXT PRIMARY KEY UNIQUE NOT NULL, lastRequested INTEGER NOT NULL);', (error: Error | null) => {
+        if (error !== null) {
+          reject(error);
+        }
+      });
+      db.run('CREATE UNIQUE INDEX IF NOT EXISTS request_userID on request ( userID );', (error: Error | null) => {
+        if (error !== null) {
+          reject(error);
+        }
+        resolve();
+      });
+    });
+  });
+};
+
+initDb(db)
+.then(() => {
+  console.log('Database initialized successful!');
+}).catch((reason) => {
+  console.error('Could not initialize database.');
+  console.error(reason);
+});
+
+const getLastRequested = function(userId: string) {
+  return new Promise<number | null>(async (resolve, reject) => {
+    db.get('SELECT lastRequested from request WHERE userId = ?;', userId, (error: Error | null, rows: object | undefined ) => {
+      if (error !== null) {
+        reject(error);
+      }
+      if (rows === undefined) {
+        resolve(null);
+      } else {
+        const lastRequested = Object.values(rows)[0] as number;
+        resolve(lastRequested);
+      }
+    });
+  });
+};
+
+const storeLastRequested = function(userId: string) {
+  return new Promise<void>(async (resolve, reject) => {
+    db.serialize(() => {
+      let doInsert = true;
+      db.get('SELECT lastRequested from request WHERE userId = ?;', userId, (error: Error | null, rows: object | undefined ) => {
+        if (error !== null) {
+          reject(error);
+        }
+        if (rows !== undefined) {
+          doInsert = false;
+        }
+
+        const lastRequested = Math.floor(DateTime.utc().toMillis() / 1000);
+        if (doInsert) {
+          db.run('INSERT INTO request(userId, lastRequested) VALUES(?, ?);', userId, lastRequested, (error: Error | null) => {
+            if (error !== null) {
+              reject(error);
+            }
+            resolve();
+          });
+        } else {
+          db.run('UPDATE request SET lastRequested = ? WHERE userId = ?;', lastRequested, userId, (error: Error | null) => {
+            if (error !== null) {
+              reject(error);
+            }
+            resolve();
+          });
+        }
+      });
+    });
+  });
+};
 
 const goerliProvider = new providers.InfuraProvider(providers.getNetwork('goerli'), process.env.INFURA_API_KEY);
 const mainnetProvider = new providers.InfuraProvider(providers.getNetwork('mainnet'), process.env.INFURA_API_KEY);
 
 goerliProvider.getBlockNumber()
-  .then((currentBlockNumber) => {
-    console.log(`Goerli RPC provider is at block number ${currentBlockNumber}.`);
+.then((currentBlockNumber) => {
+  console.log(`Goerli RPC provider is at block number ${currentBlockNumber}.`);
 });
+mainnetProvider.getBlockNumber()
+.then((currentBlockNumber) => {
+  console.log(`Mainnet RPC provider is at block number ${currentBlockNumber}.`);
+});
+
 const wallet = new Wallet(process.env.FAUCET_PRIVATE_KEY as string, goerliProvider);
 wallet.getAddress()
-  .then((address) => {
-    console.log(`Faucet wallet loaded at address ${address}.`);
-    wallet.getBalance().then((balance) => {
-      console.log(`Faucet wallet balance is ${utils.formatEther(balance)}.`);
-      if (balance < minEthers) {
-        console.warn('Not enough ethers to provide services.');
-      }
-    });
+.then((address) => {
+  console.log(`Faucet wallet loaded at address ${address}.`);
+  wallet.getBalance().then((balance) => {
+    console.log(`Faucet wallet balance is ${utils.formatEther(balance)}.`);
+    if (balance < minEthers) {
+      console.warn('Not enough ethers to provide services.');
+    } else {
+      const remainingRequests = balance.div(requestAmount);
+      console.log(`There are ${remainingRequests} potential remaining requests.`)
+    }
+  });
 });
 
 const client = new Client({ intents: [Intents.FLAGS.GUILDS] });
@@ -47,17 +135,42 @@ client.on('interactionCreate', async interaction => {
     let targetAddress = interaction.options.getString('address', true);
     const userTag = interaction.user.tag;
     const userId = interaction.user.id;
+    const userMention = Formatters.userMention(userId);
     console.log(`Request-goeth from ${userTag} (${userId}) to ${targetAddress}!`);
 
-    // TODO: Check the rate limit for this user
+    // TODO: mutex on userId
 
-    // Verify that we have enough GoETH left in the faucet
-    await interaction.reply({ content: 'Checking if we have enough fund for this request...', ephemeral: true });
-    const faucetBalance = await wallet.getBalance();
-    if (faucetBalance < minEthers) {
-      console.log(`The faucet is empty. Please contact an administrator to fill it up. From @${userTag} (${userId}).`);
-      await interaction.followUp('The faucet is empty. Please contact an administrator to fill it up.');
+    // Check for user role
+    await interaction.reply({ content: 'Checking if you have the proper role...', ephemeral: true });
+    const restrictRole = interaction.guild?.roles.cache.find((role) => role.name === process.env.ROLE_NAME);
+    const hasRole = (interaction.member?.roles as GuildMemberRoleManager).cache.find((role) => role.id === restrictRole?.id) !== undefined;
+    if (!hasRole) {
+      console.log(`You cannot use this command without the ${restrictRole?.name} role for @${userTag} (${userId}).`);
+      await interaction.followUp({
+        content: `You cannot use this command without the ${restrictRole?.name} role for ${userMention}.`,
+        allowedMentions: { parse: ['users'], repliedUser: false }
+      });
       return;
+    }
+
+    // Check the rate limit for this user
+    await interaction.editReply('Checking if you are rate-limited...');
+    const lastRequested = await getLastRequested(userId);
+    if (lastRequested !== null) {
+      const dtLastRequested = DateTime.fromMillis(lastRequested * 1000);
+      const dtRequestAvailable = dtLastRequested.plus(rateLimitDuration);
+      
+      if (DateTime.utc() < dtRequestAvailable) {
+        const durRequestAvailable = dtRequestAvailable.diff(DateTime.utc()).shiftTo('days', 'hours').normalize();
+        const formattedDuration = durRequestAvailable.toHuman();
+
+        console.log(`You cannot do another request this soon. You will need to wait at least ${formattedDuration} for @${userTag} (${userId}).`);
+        await interaction.followUp({
+          content: `You cannot do another request this soon. You will need to wait at least ${formattedDuration} for ${userMention}.`,
+          allowedMentions: { parse: ['users'], repliedUser: false }
+        });
+        return;
+      }
     }
 
     // Potentially resolving the ENS address
@@ -67,37 +180,74 @@ client.on('interactionCreate', async interaction => {
         const resolvedAddress = await mainnetProvider.resolveName(targetAddress);
         if (resolvedAddress === null) {
           console.log(`No address found for ENS ${targetAddress} for @${userTag} (${userId}).`);
-          await interaction.followUp(`No address found for ENS ${targetAddress} for @${userTag}.`);
+          await interaction.followUp({
+            content: `No address found for ENS ${targetAddress} for ${userMention}.`,
+            allowedMentions: { parse: ['users'], repliedUser: false }
+          });
           return;
         }
         targetAddress = resolvedAddress;
       } catch (error) {
         console.log(`Error while trying to resolved ENS ${targetAddress} for @${userTag} (${userId}). ${error}`);
-        await interaction.followUp(`Error while trying to resolved ENS ${targetAddress} for @${userTag}. ${error}`);
+        await interaction.followUp({
+          content: `Error while trying to resolved ENS ${targetAddress} for ${userMention}. ${error}`,
+          allowedMentions: { parse: ['users'], repliedUser: false }
+        });
         return;
+      }
+    } else {
+      // Valid address check
+      await interaction.editReply(`Checking if ${targetAddress} is a valid address...`);
+      if (!utils.isAddress(targetAddress)) {
+        console.log(`The wallet address provided (${targetAddress}) is not valid for @${userTag} (${userId})`);
+        await interaction.followUp({
+          content: `The wallet address provided (${targetAddress}) is not valid for ${userMention}`,
+          allowedMentions: { parse: ['users'], repliedUser: false }
+        });
+        return
       }
     }
 
-    // Send the funds
-    await interaction.editReply(`Sending 32.5 GoETH to ${targetAddress}...`);
+    // Verify that we have enough GoETH left in the faucet
+    await interaction.editReply('Checking if we have enough fund for this request...');
+    const faucetBalance = await wallet.getBalance();
+    if (faucetBalance < minEthers) {
+      console.log(`The faucet is empty. Please contact an administrator to fill it up. From @${userTag} (${userId}).`);
+      await interaction.followUp({
+        content: `The faucet is empty. Please contact an administrator to fill it up. From ${userMention}.`,
+        allowedMentions: { parse: ['users'], repliedUser: false }
+      });
+      return;
+    }
+
+    // Send the GoETH
+    await interaction.editReply(`Sending ${utils.formatEther(requestAmount)} GoETH to ${targetAddress}...`);
     try {
       const transaction = await wallet.sendTransaction({
         to: targetAddress,
         value: requestAmount
       });
+      
+      await storeLastRequested(userId);
+
       const transactionHash = transaction.hash;
       const explorerTxURL = explorerTxRoot + transactionHash;
-      await interaction.editReply(`32.5 GoETH have been sent to ${targetAddress} with transaction hash ${transactionHash} (explore with ${explorerTxURL}). Waiting for 1 confirm...`);
+      await interaction.editReply(`${utils.formatEther(requestAmount)} GoETH have been sent to ${targetAddress}. Explore that transaction on ${explorerTxURL}. Waiting for 1 confirm...`);
       await transaction.wait(1);
       await interaction.editReply(`Transaction confirmed with 1 block confirmation.`);
-      console.log(`32.5 GoETH have been sent to ${targetAddress} for @${userTag} (${userId}).`);
-
+      
       const remainingRequests = faucetBalance.div(requestAmount).sub(1);
+      console.log(`${utils.formatEther(requestAmount)} GoETH have been sent to ${targetAddress} for @${userTag} (${userId}).`);
+      console.log(`There are ${remainingRequests} remaining requests with the current balance.`);
 
-      await interaction.followUp(`32.5 GoETH have been sent to ${targetAddress} for @${userTag}. Explore that transaction on ${explorerTxURL}\n\nThere are ${remainingRequests} remaining requests with the current balance.`);
+      await interaction.followUp({
+        content: `${utils.formatEther(requestAmount)} GoETH have been sent to ${targetAddress} for ${userMention}. Explore that transaction on ${explorerTxURL}\n\nThere are ${remainingRequests} remaining requests with the current balance.`,
+        allowedMentions: { parse: ['users'], repliedUser: false },
+        flags: MessageFlags.SuppressEmbeds });
+
     } catch (error) {
-      console.log(`Error while trying to send 32.5 GoETH to ${targetAddress} for @${userTag} (${userId}). ${error}`);
-      await interaction.followUp(`Error while trying to send 32.5 GoETH to ${targetAddress} for @${userTag}. ${error}`);
+      console.log(`Error while trying to send ${utils.formatEther(requestAmount)} GoETH to ${targetAddress} for @${userTag} (${userId}). ${error}`);
+      await interaction.followUp(`Error while trying to send ${utils.formatEther(requestAmount)} GoETH to ${targetAddress} for ${userMention}. ${error}`);
       return;
     }
 	}
