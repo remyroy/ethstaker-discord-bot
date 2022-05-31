@@ -238,6 +238,21 @@ client.on('interactionCreate', async interaction => {
       }
     }
 
+    // Verify that the targetAddress balance does not already have enough GoETH
+    await interaction.editReply('Checking if you already have enough GoETH...');
+    const targetBalance = await goerliProvider.getBalance(targetAddress);
+    if (targetBalance >= requestAmount) {
+      await storeLastRequested(userId);
+
+      console.log(`You already have ${utils.formatEther(targetBalance)} GoETH in ${targetAddress}. It should be plenty already for a validator deposit for @${userTag} (${userId}).`);
+      await interaction.followUp({
+        content: `You already have ${utils.formatEther(targetBalance)} GoETH in ${targetAddress}. It should be plenty already for a validator deposit for ${userMention}.`,
+        allowedMentions: { parse: ['users'], repliedUser: false }
+      });
+      existingRequest.delete(userId);
+      return;
+    }
+
     // Verify that we have enough GoETH left in the faucet
     await interaction.editReply('Checking if we have enough fund for this request...');
     const faucetBalance = await wallet.getBalance();
