@@ -127,17 +127,30 @@ client.on('interactionCreate', async interaction => {
 	if (!interaction.isCommand()) return;
 
 	const { commandName } = interaction;
+  const userTag = interaction.user.tag;
+  const userId = interaction.user.id;
+  const userMention = Formatters.userMention(userId);
+
+  if (process.env.CHANNEL_NAME !== undefined && process.env.CHANNEL_NAME !== '') {
+    const restrictChannel = interaction.guild?.channels.cache.find((channel) => channel.name === process.env.CHANNEL_NAME);
+    if (restrictChannel !== undefined) {
+      if (interaction.channelId !== restrictChannel.id) {
+        const channelMention = Formatters.channelMention(restrictChannel.id);
+        console.log(`This is the wrong channel for this bot commands. You should try in #${restrictChannel.name} for @${userTag} (${userId}).`);
+        await interaction.reply({
+          content: `This is the wrong channel for this bot commands. You should try in ${channelMention} for ${userMention}.`,
+          allowedMentions: { parse: ['users'], repliedUser: false }
+        });
+        return;
+      }
+    }
+  }
 
 	if (commandName === 'ping') {
-    const userTag = interaction.user.tag;
-    const userId = interaction.user.id;
     console.log(`Ping from ${userTag} (${userId})!`);
 		await interaction.reply('Pong!');
 	} else if (commandName === 'request-goeth') {
     let targetAddress = interaction.options.getString('address', true);
-    const userTag = interaction.user.tag;
-    const userId = interaction.user.id;
-    const userMention = Formatters.userMention(userId);
     console.log(`Request-goeth from ${userTag} (${userId}) to ${targetAddress}!`);
 
     // mutex on userId
