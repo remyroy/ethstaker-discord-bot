@@ -108,7 +108,7 @@ wallet.getAddress()
   console.log(`Faucet wallet loaded at address ${address}.`);
   wallet.getBalance().then((balance) => {
     console.log(`Faucet wallet balance is ${utils.formatEther(balance)}.`);
-    if (balance < minEthers) {
+    if (balance.lt(minEthers)) {
       console.warn('Not enough ethers to provide services.');
     } else {
       const remainingRequests = balance.div(requestAmount);
@@ -241,7 +241,7 @@ client.on('interactionCreate', async interaction => {
     // Verify that the targetAddress balance does not already have enough GoETH
     await interaction.editReply('Checking if you already have enough GoETH...');
     const targetBalance = await goerliProvider.getBalance(targetAddress);
-    if (targetBalance >= requestAmount) {
+    if (targetBalance.gte(requestAmount)) {
       await storeLastRequested(userId);
 
       console.log(`You already have ${utils.formatEther(targetBalance)} GoETH in ${targetAddress}. It should be plenty already for a validator deposit for @${userTag} (${userId}).`);
@@ -256,7 +256,7 @@ client.on('interactionCreate', async interaction => {
     // Verify that we have enough GoETH left in the faucet
     await interaction.editReply('Checking if we have enough fund for this request...');
     const faucetBalance = await wallet.getBalance();
-    if (faucetBalance < minEthers) {
+    if (faucetBalance.lt(minEthers)) {
       console.log(`The faucet is empty. Please contact an administrator to fill it up. From @${userTag} (${userId}).`);
       await interaction.followUp({
         content: `The faucet is empty. Please contact an administrator to fill it up. From ${userMention}.`,
