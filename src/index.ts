@@ -382,7 +382,7 @@ client.on('interactionCreate', async interaction => {
       existingGoerliRequest.delete(userId);
       return;
     }
-	} else if (commandName === 'request-ropsten-eth') {
+  } else if (commandName === 'request-ropsten-eth') {
     let targetAddress = interaction.options.getString('address', true);
     console.log(`request-ropsten-eth from ${userTag} (${userId}) to ${targetAddress}!`);
 
