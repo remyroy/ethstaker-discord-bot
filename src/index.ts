@@ -9,8 +9,10 @@ import { DateTime, Duration } from 'luxon';
 
 const minEthers = utils.parseUnits("33.0", "ether");
 const requestAmount = utils.parseUnits("32.5", "ether");
-const rateLimitDuration = Duration.fromObject({ weeks: 3 });
 const db = new Database('db.sqlite');
+
+const goerliRateLimitDuration = Duration.fromObject({ weeks: 3 });
+const ropstenRateLimitDuration = Duration.fromObject({ days: 4 });
 
 const goerliExplorerTxRoot = 'https://goerli.etherscan.io/tx/';
 const ropstenExplorerTxRoot = 'https://ropsten.etherscan.io/tx/';
@@ -267,7 +269,7 @@ client.on('interactionCreate', async interaction => {
     const lastRequested = await getGoerliLastRequested(userId);
     if (lastRequested !== null) {
       const dtLastRequested = DateTime.fromMillis(lastRequested * 1000);
-      const dtRequestAvailable = dtLastRequested.plus(rateLimitDuration);
+      const dtRequestAvailable = dtLastRequested.plus(goerliRateLimitDuration);
       
       if (DateTime.utc() < dtRequestAvailable) {
         const durRequestAvailable = dtRequestAvailable.diff(DateTime.utc()).shiftTo('days', 'hours').normalize();
@@ -432,7 +434,7 @@ client.on('interactionCreate', async interaction => {
     const lastRequested = await getRopstenLastRequested(userId);
     if (lastRequested !== null) {
       const dtLastRequested = DateTime.fromMillis(lastRequested * 1000);
-      const dtRequestAvailable = dtLastRequested.plus(rateLimitDuration);
+      const dtRequestAvailable = dtLastRequested.plus(ropstenRateLimitDuration);
       
       if (DateTime.utc() < dtRequestAvailable) {
         const durRequestAvailable = dtRequestAvailable.diff(DateTime.utc()).shiftTo('days', 'hours').normalize();
