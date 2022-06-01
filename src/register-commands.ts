@@ -17,6 +17,13 @@ const commands = [
       .setName('address')
       .setDescription('A valid Ethereum address. It can be a full address or an ENS.')
       .setRequired(true)),
+  new SlashCommandBuilder()
+    .setName('request-ropsten-eth')
+    .setDescription('Request 32.5 Ropsten ETH to be transfered into your wallet.')
+    .addStringOption(option => option
+      .setName('address')
+      .setDescription('A valid Ethereum address. It can be a full address or an ENS.')
+      .setRequired(true)),
 	new SlashCommandBuilder().setName('ping').setDescription('Replies with pong!'),
 ]
 	.map(command => command.toJSON());
