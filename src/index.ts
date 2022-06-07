@@ -10,6 +10,7 @@ import { DateTime, Duration } from 'luxon';
 const minEthers = utils.parseUnits("33.0", "ether");
 const requestAmount = utils.parseUnits("32.5", "ether");
 const db = new Database('db.sqlite');
+const quickNewRequest = Duration.fromObject({ days: 1 });
 
 const goerliRateLimitDuration = Duration.fromObject({ weeks: 3 });
 const ropstenRateLimitDuration = Duration.fromObject({ days: 4 });
@@ -267,14 +268,15 @@ client.on('interactionCreate', async interaction => {
     // Check the rate limit for this user
     await interaction.editReply('Checking if you are rate-limited...');
     const lastRequested = await getGoerliLastRequested(userId);
+    let newRequestPart = '';
     if (lastRequested !== null) {
       const dtLastRequested = DateTime.fromMillis(lastRequested * 1000);
       const dtRequestAvailable = dtLastRequested.plus(goerliRateLimitDuration);
       
-      if (DateTime.utc() < dtRequestAvailable) {
-        const durRequestAvailable = dtRequestAvailable.diff(DateTime.utc()).shiftTo('days', 'hours').normalize();
-        const formattedDuration = durRequestAvailable.toHuman();
+      const durRequestAvailable = dtRequestAvailable.diff(DateTime.utc()).shiftTo('days', 'hours').normalize();
+      const formattedDuration = durRequestAvailable.toHuman();
 
+      if (DateTime.utc() < dtRequestAvailable) {
         console.log(`You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for @${userTag} (${userId}).`);
         await interaction.followUp({
           content: `You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for ${userMention}.`,
@@ -282,6 +284,11 @@ client.on('interactionCreate', async interaction => {
         });
         existingGoerliRequest.delete(userId);
         return;
+      } else {
+        newRequestPart = ` Your new request was available ${formattedDuration} ago.`;
+        if (durRequestAvailable.toMillis() <= quickNewRequest.toMillis()) {
+          newRequestPart = newRequestPart.concat(` That was a quick new request! You should consider leaving some for the others.`);
+        }
       }
     }
 
@@ -368,11 +375,11 @@ client.on('interactionCreate', async interaction => {
       await interaction.editReply(`Transaction confirmed with 1 block confirmation.`);
       
       const remainingRequests = faucetBalance.div(requestAmount).sub(1);
-      console.log(`${utils.formatEther(requestAmount)} GoETH have been sent to ${targetAddress} for @${userTag} (${userId}).`);
+      console.log(`${utils.formatEther(requestAmount)} GoETH have been sent to ${targetAddress} for @${userTag} (${userId}).${newRequestPart}`);
       console.log(`There are ${remainingRequests} remaining requests with the current balance.`);
 
       await interaction.followUp({
-        content: `${utils.formatEther(requestAmount)} GoETH have been sent to ${targetAddress} for ${userMention}. Explore that transaction on ${explorerTxURL}\n\nThere are ${remainingRequests} remaining requests with the current balance.`,
+        content: `${utils.formatEther(requestAmount)} GoETH have been sent to ${targetAddress} for ${userMention}.${newRequestPart} Explore that transaction on ${explorerTxURL}\n\nThere are ${remainingRequests} remaining requests with the current balance.`,
         allowedMentions: { parse: ['users'], repliedUser: false },
         flags: MessageFlags.SuppressEmbeds });
       
@@ -432,14 +439,15 @@ client.on('interactionCreate', async interaction => {
     // Check the rate limit for this user
     await interaction.editReply('Checking if you are rate-limited...');
     const lastRequested = await getRopstenLastRequested(userId);
+    let newRequestPart = '';
     if (lastRequested !== null) {
       const dtLastRequested = DateTime.fromMillis(lastRequested * 1000);
       const dtRequestAvailable = dtLastRequested.plus(ropstenRateLimitDuration);
       
-      if (DateTime.utc() < dtRequestAvailable) {
-        const durRequestAvailable = dtRequestAvailable.diff(DateTime.utc()).shiftTo('days', 'hours').normalize();
-        const formattedDuration = durRequestAvailable.toHuman();
+      const durRequestAvailable = dtRequestAvailable.diff(DateTime.utc()).shiftTo('days', 'hours').normalize();
+      const formattedDuration = durRequestAvailable.toHuman();
 
+      if (DateTime.utc() < dtRequestAvailable) {
         console.log(`You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for @${userTag} (${userId}).`);
         await interaction.followUp({
           content: `You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for ${userMention}.`,
@@ -447,6 +455,11 @@ client.on('interactionCreate', async interaction => {
         });
         existingRopstenRequest.delete(userId);
         return;
+      } else {
+        newRequestPart = ` Your new request was available ${formattedDuration} ago.`;
+        if (durRequestAvailable.toMillis() <= quickNewRequest.toMillis()) {
+          newRequestPart = newRequestPart.concat(` That was a quick new request! You should consider leaving some for the others.`);
+        }
       }
     }
 
@@ -533,11 +546,11 @@ client.on('interactionCreate', async interaction => {
       await interaction.editReply(`Transaction confirmed with 1 block confirmation.`);
       
       const remainingRequests = faucetBalance.div(requestAmount).sub(1);
-      console.log(`${utils.formatEther(requestAmount)} Ropsten ETH have been sent to ${targetAddress} for @${userTag} (${userId}).`);
+      console.log(`${utils.formatEther(requestAmount)} Ropsten ETH have been sent to ${targetAddress} for @${userTag} (${userId}).${newRequestPart}`);
       console.log(`There are ${remainingRequests} remaining requests with the current balance.`);
 
       await interaction.followUp({
-        content: `${utils.formatEther(requestAmount)} Ropsten ETH have been sent to ${targetAddress} for ${userMention}. Explore that transaction on ${explorerTxURL}\n\nThere are ${remainingRequests} remaining requests with the current balance.`,
+        content: `${utils.formatEther(requestAmount)} Ropsten ETH have been sent to ${targetAddress} for ${userMention}.${newRequestPart} Explore that transaction on ${explorerTxURL}\n\nThere are ${remainingRequests} remaining requests with the current balance.`,
         allowedMentions: { parse: ['users'], repliedUser: false },
         flags: MessageFlags.SuppressEmbeds });
       
