@@ -285,8 +285,10 @@ client.on('interactionCreate', async interaction => {
         existingGoerliRequest.delete(userId);
         return;
       } else {
-        newRequestPart = ` Your new request was available ${formattedDuration} ago.`;
-        if (durRequestAvailable.toMillis() <= quickNewRequest.toMillis()) {
+        const negDurRequestAvailable = durRequestAvailable.negate().shiftTo('days', 'hours').normalize();
+        const newRequestFormattedDuration = negDurRequestAvailable.toHuman();
+        newRequestPart = ` Your new request was available ${newRequestFormattedDuration} ago.`;
+        if (negDurRequestAvailable.toMillis() <= quickNewRequest.toMillis()) {
           newRequestPart = newRequestPart.concat(` That was a quick new request! You should consider leaving some for the others.`);
         }
       }
@@ -456,8 +458,10 @@ client.on('interactionCreate', async interaction => {
         existingRopstenRequest.delete(userId);
         return;
       } else {
-        newRequestPart = ` Your new request was available ${formattedDuration} ago.`;
-        if (durRequestAvailable.toMillis() <= quickNewRequest.toMillis()) {
+        const negDurRequestAvailable = durRequestAvailable.negate().shiftTo('days', 'hours').normalize();
+        const newRequestFormattedDuration = negDurRequestAvailable.toHuman();
+        newRequestPart = ` Your new request was available ${newRequestFormattedDuration} ago.`;
+        if (negDurRequestAvailable.toMillis() <= quickNewRequest.toMillis()) {
           newRequestPart = newRequestPart.concat(` That was a quick new request! You should consider leaving some for the others.`);
         }
       }
