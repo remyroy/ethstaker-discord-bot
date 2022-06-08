@@ -12,14 +12,14 @@ const token = process.env.DISCORD_TOKEN as string;
 const commands = [
 	new SlashCommandBuilder()
     .setName('request-goeth')
-    .setDescription('Request 32.5 Goerli ETH (GoETH) to be transfered into your wallet.')
+    .setDescription('Request enough Goerli ETH (GoETH) for a validator deposit to be transfered into your wallet.')
     .addStringOption(option => option
       .setName('address')
       .setDescription('A valid Ethereum address. It can be a full address or an ENS.')
       .setRequired(true)),
   new SlashCommandBuilder()
     .setName('request-ropsten-eth')
-    .setDescription('Request 32.5 Ropsten ETH to be transfered into your wallet.')
+    .setDescription('Request enough Ropsten ETH for a validator deposit to be transfered into your wallet.')
     .addStringOption(option => option
       .setName('address')
       .setDescription('A valid Ethereum address. It can be a full address or an ENS.')
