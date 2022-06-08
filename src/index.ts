@@ -9,7 +9,8 @@ import { DateTime, Duration } from 'luxon';
 
 const db = new Database('db.sqlite');
 const quickNewRequest = Duration.fromObject({ days: 1 });
-const maxTransactionCost = utils.parseUnits("0.5", "ether");
+const maxTransactionCost = utils.parseUnits("0.25", "ether");
+const validatorDepositCost = utils.parseUnits("32", "ether");
 
 interface networkConfig {
   network: string;
@@ -59,8 +60,8 @@ commandsConfig.set('request-goeth', {
   rateLimitDuration: Duration.fromObject({ weeks: 3 }),
   explorerTxRoot: 'https://goerli.etherscan.io/tx/',
   existingRequest: new Map<string, boolean>(),
-  minEthers: utils.parseUnits("33.0", "ether"),
-  requestAmount: utils.parseUnits("32.5", "ether"),
+  minEthers: validatorDepositCost.add(maxTransactionCost.mul(2)),
+  requestAmount: validatorDepositCost.add(maxTransactionCost),
   wallet: new Wallet(process.env.FAUCET_PRIVATE_KEY as string, goerliProvider),
   provider: goerliProvider,
 });
@@ -75,8 +76,8 @@ commandsConfig.set('request-ropsten-eth', {
   rateLimitDuration: Duration.fromObject({ days: 4 }),
   explorerTxRoot: 'https://ropsten.etherscan.io/tx/',
   existingRequest: new Map<string, boolean>(),
-  minEthers: utils.parseUnits("33.0", "ether"),
-  requestAmount: utils.parseUnits("32.5", "ether"),
+  minEthers: validatorDepositCost.add(maxTransactionCost.mul(2)),
+  requestAmount: validatorDepositCost.add(maxTransactionCost),
   wallet: new Wallet(process.env.FAUCET_PRIVATE_KEY as string, ropstenProvider),
   provider: ropstenProvider,
 });
