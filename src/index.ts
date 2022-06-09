@@ -29,7 +29,7 @@ interface networkConfig {
 };
 
 const main = function() {
-  return new Promise<void>(async (resolve, reject) => {
+  return new Promise<void>(async (mainResolve, mainReject) => {
 
     const mainnetProvider = new providers.InfuraProvider(providers.getNetwork('mainnet'), process.env.INFURA_API_KEY);
 
