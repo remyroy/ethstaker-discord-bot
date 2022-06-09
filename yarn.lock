@@ -1689,9 +1689,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ethstaker-goeth-bot@workspace:.":
+"ethstaker-discord-bot@workspace:.":
   version: 0.0.0-use.local
-  resolution: "ethstaker-goeth-bot@workspace:."
+  resolution: "ethstaker-discord-bot@workspace:."
   dependencies:
     "@discordjs/builders": ^0.13.0
     "@discordjs/rest": ^0.4.1

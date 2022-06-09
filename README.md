@@ -1,2 +1,2 @@
-# ethstaker-goeth-bot
-EthStaker GoETH bot
+# ethstaker-discord-bot
+EthStaker Discord bot

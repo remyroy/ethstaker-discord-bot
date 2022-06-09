@@ -1,8 +1,8 @@
 {
-  "name": "ethstaker-goeth-bot",
+  "name": "ethstaker-discord-bot",
   "version": "0.1.0",
   "packageManager": "yarn@3.2.1",
-  "repository": "https://github.com/remyroy/ethstaker-goeth-bot",
+  "repository": "https://github.com/remyroy/ethstaker-discord-bot",
   "author": "Rémy Roy <remyroy@remyroy.com>",
   "license": "MIT",
   "main": "src/index.ts",
