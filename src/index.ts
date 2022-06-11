@@ -519,6 +519,8 @@ const main = function() {
             exitQueueMessage = `There are **${queryResponse.data.beaconchain_exiting} validators awaiting to exit** the network. It should take at least ${formattedExitDuration} for a voluntary exit to be processed and an associated validator to leave the network.`;
           }
 
+          console.log(`Current queue details for ${network} for @${userTag} (${userId})\n\n- ${activationQueueMessage}\n- ${exitQueueMessage}`);
+
           await interaction.followUp({
             content: `Current queue details for ${network} for ${userMention}\n\n- ${activationQueueMessage}\n- ${exitQueueMessage}`,
             allowedMentions: { parse: ['users'], repliedUser: false },
