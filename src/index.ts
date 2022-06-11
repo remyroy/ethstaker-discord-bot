@@ -522,7 +522,7 @@ const main = function() {
           console.log(`Current queue details for ${network} for @${userTag} (${userId})\n\n- ${activationQueueMessage}\n- ${exitQueueMessage}`);
 
           await interaction.followUp({
-            content: `Current queue details for ${network} for ${userMention}\n\n- ${activationQueueMessage}\n- ${exitQueueMessage}`,
+            content: `Current queue details for **${network}** for ${userMention}\n\n- ${activationQueueMessage}\n- ${exitQueueMessage}`,
             allowedMentions: { parse: ['users'], repliedUser: false },
             flags: MessageFlags.SuppressEmbeds });
           
