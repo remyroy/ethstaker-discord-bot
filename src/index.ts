@@ -503,24 +503,24 @@ const main = function() {
             return;
           }
 
-          let activationQueueMessage = 'The activation queue is empty. It should only take 16-24 hours for a new deposit to be processed and an associated validator to be activated.';
-          let exitQueueMessage = 'The exit queue is empty. It should only take a few minutes for a validator to complete a voluntary exit.';
+          let activationQueueMessage = 'The **activation queue** is empty. It should only take 16-24 hours for a new deposit to be processed and an associated validator to be activated.';
+          let exitQueueMessage = 'The **exit queue** is empty. It should only take a few minutes for a validator to complete a voluntary exit.';
 
           if (queryResponse.data.beaconchain_entering > 0) {
             const activationDays = queryResponse.data.beaconchain_entering / 900.0;
             const activationDuration = Duration.fromObject({ days: activationDays }).shiftTo('days', 'hours').normalize();
             const formattedActivationDuration = activationDuration.toHuman();
-            activationQueueMessage = `There are ${queryResponse.data.beaconchain_entering} validators awaiting to be activated. It should take at least ${formattedActivationDuration} for a new deposit to be processed and an associated validator to be activated.`;
+            activationQueueMessage = `There are **${queryResponse.data.beaconchain_entering} validators awaiting to be activated**. It should take at least ${formattedActivationDuration} for a new deposit to be processed and an associated validator to be activated.`;
           }
           if (queryResponse.data.beaconchain_exiting > 0) {
             const exitDays = queryResponse.data.beaconchain_exiting / 900.0;
             const exitDuration = Duration.fromObject({ days: exitDays }).shiftTo('days', 'hours').normalize();
             const formattedExitDuration = exitDuration.toHuman();
-            exitQueueMessage = `There are ${queryResponse.data.beaconchain_exiting} validators awaiting to exit the network. It should take at least ${formattedExitDuration} for a voluntary exit to be processed and an associated validator to leave the network.`;
+            exitQueueMessage = `There are **${queryResponse.data.beaconchain_exiting} validators awaiting to exit** the network. It should take at least ${formattedExitDuration} for a voluntary exit to be processed and an associated validator to leave the network.`;
           }
 
           await interaction.followUp({
-            content: `Current queue details for ${network} for ${userMention}\n\n${activationQueueMessage}\n${exitQueueMessage}`,
+            content: `Current queue details for ${network} for ${userMention}\n\n- ${activationQueueMessage}\n- ${exitQueueMessage}`,
             allowedMentions: { parse: ['users'], repliedUser: false },
             flags: MessageFlags.SuppressEmbeds });
           
