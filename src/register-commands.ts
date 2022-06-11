@@ -25,6 +25,12 @@ const commands = [
       .setDescription('A valid Ethereum address. It can be a full address or an ENS.')
       .setRequired(true)),
 	new SlashCommandBuilder().setName('ping').setDescription('Replies with pong!'),
+  new SlashCommandBuilder().setName('queue-mainnet')
+    .setDescription('Get validators activation and exit queue details from Mainnet.'),
+  new SlashCommandBuilder().setName('queue-prater')
+    .setDescription('Get validators activation and exit queue details from Prater testnet.'),
+  new SlashCommandBuilder().setName('queue-ropsten')
+    .setDescription('Get validators activation and exit queue details from Ropsten testnet.'),
 ]
 	.map(command => command.toJSON());
 

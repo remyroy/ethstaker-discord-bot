@@ -6,10 +6,11 @@ import { BigNumber, providers, utils, Wallet } from 'ethers';
 import { Database } from 'sqlite3';
 import { MessageFlags } from 'discord-api-types/v9';
 import { DateTime, Duration } from 'luxon';
+import axios from 'axios';
 
 const db = new Database('db.sqlite');
 const quickNewRequest = Duration.fromObject({ days: 1 });
-const maxTransactionCost = utils.parseUnits("0.25", "ether");
+const maxTransactionCost = utils.parseUnits("0.1", "ether");
 const validatorDepositCost = utils.parseUnits("32", "ether");
 
 interface networkConfig {
@@ -27,6 +28,11 @@ interface networkConfig {
   wallet: Wallet;
   provider: providers.Provider;
 };
+
+interface queueConfig {
+  network: string;
+  apiUrl: string;
+}
 
 const main = function() {
   return new Promise<void>(async (mainResolve, mainReject) => {
@@ -50,10 +56,10 @@ const main = function() {
       console.log(`Ropsten RPC provider is at block number ${currentBlockNumber}.`);
     });
 
-    // Configuring the commands
-    const commandsConfig = new Map<string, networkConfig>();
+    // Configuring the faucet commands
+    const faucetCommandsConfig = new Map<string, networkConfig>();
 
-    commandsConfig.set('request-goeth', {
+    faucetCommandsConfig.set('request-goeth', {
       network: 'Goerli',
       currency: 'GoETH',
       command: 'request-goeth',
@@ -69,7 +75,7 @@ const main = function() {
       provider: goerliProvider,
     });
 
-    commandsConfig.set('request-ropsten-eth', {
+    faucetCommandsConfig.set('request-ropsten-eth', {
       network: 'Ropsten',
       currency: 'Ropsten ETH',
       command: 'request-ropsten-eth',
@@ -86,7 +92,7 @@ const main = function() {
     });
 
     // Logging faucet wallet balance and remaining requests
-    commandsConfig.forEach((config, key, map) => {
+    faucetCommandsConfig.forEach((config, key, map) => {
       const wallet = config.wallet;
       const currency = config.currency;
       const network = config.network;
@@ -108,11 +114,29 @@ const main = function() {
       });
     });
 
-    const initDb = function(db: Database, commandsConfig: Map<string, networkConfig>) {
+    // Configuring the queue commands
+    const queueCommandsConfig = new Map<string, queueConfig>();
+
+    queueCommandsConfig.set('queue-mainnet', {
+      network: 'Mainnet',
+      apiUrl: 'https://beaconcha.in/api/v1/validators/queue'
+    });
+
+    queueCommandsConfig.set('queue-prater', {
+      network: 'Prater',
+      apiUrl: 'https://prater.beaconcha.in/api/v1/validators/queue'
+    });
+
+    queueCommandsConfig.set('queue-ropsten', {
+      network: 'Ropsten',
+      apiUrl: 'https://ropsten.beaconcha.in/api/v1/validators/queue'
+    });
+
+    const initDb = function(db: Database, faucetCommandsConfig: Map<string, networkConfig>) {
       return new Promise<void>(async (resolve, reject) => {
         db.serialize(() => {
           let index = 0;
-          commandsConfig.forEach((config, key, map) => {
+          faucetCommandsConfig.forEach((config, key, map) => {
             const tableName = config.requestTable;
             const lastOne = (index + 1 === map.size);
             db.run(`CREATE TABLE IF NOT EXISTS ${tableName} (userId TEXT PRIMARY KEY UNIQUE NOT NULL, lastRequested INTEGER NOT NULL, lastAddress TEXT NOT NULL);`, (error: Error | null) => {
@@ -160,7 +184,7 @@ const main = function() {
       });
     };
 
-    initDb(db, commandsConfig)
+    initDb(db, faucetCommandsConfig)
     .then(() => {
       console.log('Database initialized successful!');
     }).catch((reason) => {
@@ -239,11 +263,11 @@ const main = function() {
       if (commandName === 'ping') {
         console.log(`Ping from ${userTag} (${userId})!`);
         await interaction.reply('Pong!');
-      } else if (commandsConfig.has(commandName)) {
+      } else if (faucetCommandsConfig.has(commandName)) {
         let targetAddress = interaction.options.getString('address', true);
         console.log(`${commandName} from ${userTag} (${userId}) to ${targetAddress}!`);
 
-        const config = commandsConfig.get(commandName) as networkConfig;
+        const config = faucetCommandsConfig.get(commandName) as networkConfig;
         const channelName = config.channel;
 
         if (channelName !== undefined && channelName !== '') {
@@ -447,6 +471,64 @@ const main = function() {
           existingRequest.delete(userId);
           return;
         }
+      } else if (queueCommandsConfig.has(commandName)) {
+        console.log(`${commandName} from ${userTag} (${userId})`);
+
+        const config = queueCommandsConfig.get(commandName) as queueConfig;
+        const network = config.network;
+        const apiUrl = config.apiUrl;
+
+        await interaction.reply({ content: `Querying beaconcha.in API for ${network} queue details...`, ephemeral: true });
+        try {
+          const response = await axios.get(apiUrl);
+          if (response.status !== 200) {
+            console.log(`Unexpected status code from querying beaconcha.in API for ${network} queue details. Status code ${response.status} for @${userTag} (${userId}).`);
+            await interaction.followUp(`Unexpected status code from querying beaconcha.in API for ${network} queue details. Status code ${response.status} for ${userMention}.`);
+            return;
+          }
+
+          interface queueResponse {
+            status: string,
+            data: {
+              beaconchain_entering: number,
+              beaconchain_exiting: number
+            }
+          };
+
+          const queryResponse = response.data as queueResponse;
+
+          if (queryResponse.status !== "OK") {
+            console.log(`Unexpected body status from querying beaconcha.in API for ${network} queue details. Body status ${queryResponse.status} for @${userTag} (${userId}).`);
+            await interaction.followUp(`Unexpected body status from querying beaconcha.in API for ${network} queue details. Body status ${queryResponse.status} for ${userMention}.`);
+            return;
+          }
+
+          let activationQueueMessage = 'The activation queue is empty. It should only take 16-24 hours for a new deposit to be processed and an associated validator to be activated.';
+          let exitQueueMessage = 'The exit queue is empty. It should only take a few minutes for a validator to complete a voluntary exit.';
+
+          if (queryResponse.data.beaconchain_entering > 0) {
+            const activationDays = queryResponse.data.beaconchain_entering / 900.0;
+            const activationDuration = Duration.fromObject({ days: activationDays }).shiftTo('days', 'hours').normalize();
+            const formattedActivationDuration = activationDuration.toHuman();
+            activationQueueMessage = `There are ${queryResponse.data.beaconchain_entering} validators awaiting to be activated. It should take at least ${formattedActivationDuration} for a new deposit to be processed and an associated validator to be activated.`;
+          }
+          if (queryResponse.data.beaconchain_exiting > 0) {
+            const exitDays = queryResponse.data.beaconchain_exiting / 900.0;
+            const exitDuration = Duration.fromObject({ days: exitDays }).shiftTo('days', 'hours').normalize();
+            const formattedExitDuration = exitDuration.toHuman();
+            exitQueueMessage = `There are ${queryResponse.data.beaconchain_exiting} validators awaiting to exit the network. It should take at least ${formattedExitDuration} for a voluntary exit to be processed and an associated validator to leave the network.`;
+          }
+
+          await interaction.followUp({
+            content: `Current queue details for ${network} for ${userMention}\n\n${activationQueueMessage}\n${exitQueueMessage}`,
+            allowedMentions: { parse: ['users'], repliedUser: false },
+            flags: MessageFlags.SuppressEmbeds });
+          
+        } catch (error) {
+          console.log(`Error while trying to query beaconcha.in API for ${network} queue details for @${userTag} (${userId}). ${error}`);
+          await interaction.followUp(`Error while trying to query beaconcha.in API for ${network} queue details for ${userMention}. ${error}`);
+        }
+
       }
     });
 
