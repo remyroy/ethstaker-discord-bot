@@ -324,7 +324,10 @@ const main = function() {
           const dtLastRequested = DateTime.fromMillis(lastRequest.lastRequested * 1000);
           const dtRequestAvailable = dtLastRequested.plus(rateLimitDuration);
           
-          const durRequestAvailable = dtRequestAvailable.diff(DateTime.utc()).shiftTo('days', 'hours').normalize();
+          let durRequestAvailable = dtRequestAvailable.diff(DateTime.utc()).shiftTo('days', 'hours').normalize();
+          if (durRequestAvailable.days === 0) {
+            durRequestAvailable = durRequestAvailable.shiftTo('hours');
+          }
           const formattedDuration = durRequestAvailable.toHuman();
 
           if (DateTime.utc() < dtRequestAvailable) {
@@ -336,8 +339,12 @@ const main = function() {
             existingRequest.delete(userId);
             return;
           } else {
-            const negDurRequestAvailable = durRequestAvailable.negate().shiftTo('days', 'hours').normalize();
+            let negDurRequestAvailable = durRequestAvailable.negate().shiftTo('days', 'hours').normalize();
+            if (negDurRequestAvailable.days === 0) {
+              negDurRequestAvailable = negDurRequestAvailable.shiftTo('hours');
+            }
             const newRequestFormattedDuration = negDurRequestAvailable.toHuman();
+
             newRequestPart = ` Your new request was available ${newRequestFormattedDuration} ago.`;
             if (negDurRequestAvailable.toMillis() <= quickNewRequest.toMillis()) {
               newRequestPart = newRequestPart.concat(` That was a quick new request! You should consider leaving some for the others.`);
@@ -503,19 +510,34 @@ const main = function() {
             return;
           }
 
-          let activationQueueMessage = 'The **activation queue** is empty. It should only take 16-24 hours for a new deposit to be processed and an associated validator to be activated.';
+          const activationNormalProcessingMsg = 'It should only take 16-24 hours for a new deposit to be processed and an associated validator to be activated.';
+          const activationNormalProcessingMaxDuration = Duration.fromObject({ hours: 24 });
+
+          let activationQueueMessage = `The **activation queue** is empty. ${activationNormalProcessingMsg}`;
           let exitQueueMessage = 'The **exit queue** is empty. It should only take a few minutes for a validator to complete a voluntary exit.';
 
           if (queryResponse.data.beaconchain_entering > 0) {
             const activationDays = queryResponse.data.beaconchain_entering / 900.0;
-            const activationDuration = Duration.fromObject({ days: activationDays }).shiftTo('days', 'hours').normalize();
+            let activationDuration = Duration.fromObject({ days: activationDays }).shiftTo('days', 'hours').normalize();
+            if (activationDuration.days === 0) {
+              activationDuration = activationDuration.shiftTo('hours');
+            }
             const formattedActivationDuration = activationDuration.toHuman();
-            activationQueueMessage = `There are **${queryResponse.data.beaconchain_entering} validators awaiting to be activated**. It should take at least ${formattedActivationDuration} for a new deposit to be processed and an associated validator to be activated.`;
+
+            if (activationDuration.toMillis() <= activationNormalProcessingMaxDuration.toMillis()) {
+              activationQueueMessage = `There are **${queryResponse.data.beaconchain_entering} validators awaiting to be activated**. The queue should clear out in ${formattedActivationDuration} if there is no new deposit. ${activationNormalProcessingMsg}`;
+            } else {
+              activationQueueMessage = `There are **${queryResponse.data.beaconchain_entering} validators awaiting to be activated**. It should take at least ${formattedActivationDuration} for a new deposit to be processed and an associated validator to be activated.`;
+            }
           }
           if (queryResponse.data.beaconchain_exiting > 0) {
             const exitDays = queryResponse.data.beaconchain_exiting / 900.0;
-            const exitDuration = Duration.fromObject({ days: exitDays }).shiftTo('days', 'hours').normalize();
+            let exitDuration = Duration.fromObject({ days: exitDays }).shiftTo('days', 'hours').normalize();
+            if (exitDuration.days === 0) {
+              exitDuration = exitDuration.shiftTo('hours');
+            }
             const formattedExitDuration = exitDuration.toHuman();
+
             exitQueueMessage = `There are **${queryResponse.data.beaconchain_exiting} validators awaiting to exit** the network. It should take at least ${formattedExitDuration} for a voluntary exit to be processed and an associated validator to leave the network.`;
           }
 
