@@ -565,6 +565,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/eventsource@npm:^1.1.8":
+  version: 1.1.8
+  resolution: "@types/eventsource@npm:1.1.8"
+  checksum: 2832bccf42f808946b1b71c4fa6b525187a780a6e5efbb72b331d3d5ba9626b3b2fcf1a8654f630a2d2e48f1326b4fed83d923a06379a744712c1aa0c8b814ed
+  languageName: node
+  linkType: hard
+
 "@types/luxon@npm:^2.3.2":
   version: 2.3.2
   resolution: "@types/luxon@npm:2.3.2"
@@ -1706,6 +1713,7 @@ __metadata:
     "@discordjs/builders": ^0.13.0
     "@discordjs/rest": ^0.4.1
     "@tsconfig/node16": ^1.0.2
+    "@types/eventsource": ^1.1.8
     "@types/luxon": ^2.3.2
     "@types/sqlite3": ^3.1.8
     axios: ^0.27.2
@@ -1715,6 +1723,7 @@ __metadata:
     dotenv: ^16.0.1
     erlpack: ^0.1.4
     ethers: ^5.6.8
+    eventsource: ^2.0.2
     gulp: ^4.0.2
     gulp-typescript: ^6.0.0-alpha.1
     luxon: ^2.4.0
@@ -1724,6 +1733,13 @@ __metadata:
     zlib-sync: ^0.1.7
   languageName: unknown
   linkType: soft
+
+"eventsource@npm:^2.0.2":
+  version: 2.0.2
+  resolution: "eventsource@npm:2.0.2"
+  checksum: c0072d972753e10c705d9b2285b559184bf29d011bc208973dde9c8b6b8b7b6fdad4ef0846cecb249f7b1585e860fdf324cbd2ac854a76bc53649e797496e99a
+  languageName: node
+  linkType: hard
 
 "expand-brackets@npm:^2.1.4":
   version: 2.1.4
