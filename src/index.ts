@@ -326,7 +326,7 @@ const main = function() {
           
           let durRequestAvailable = dtRequestAvailable.diff(DateTime.utc()).shiftTo('days', 'hours').normalize();
           if (durRequestAvailable.days === 0) {
-            durRequestAvailable = durRequestAvailable.shiftTo('hours');
+            durRequestAvailable = durRequestAvailable.shiftTo('hours', 'minutes');
           }
           const formattedDuration = durRequestAvailable.toHuman();
 
@@ -341,7 +341,7 @@ const main = function() {
           } else {
             let negDurRequestAvailable = durRequestAvailable.negate().shiftTo('days', 'hours').normalize();
             if (negDurRequestAvailable.days === 0) {
-              negDurRequestAvailable = negDurRequestAvailable.shiftTo('hours');
+              negDurRequestAvailable = negDurRequestAvailable.shiftTo('hours', 'minutes');
             }
             const newRequestFormattedDuration = negDurRequestAvailable.toHuman();
 
@@ -520,7 +520,7 @@ const main = function() {
             const activationDays = queryResponse.data.beaconchain_entering / 900.0;
             let activationDuration = Duration.fromObject({ days: activationDays }).shiftTo('days', 'hours').normalize();
             if (activationDuration.days === 0) {
-              activationDuration = activationDuration.shiftTo('hours');
+              activationDuration = activationDuration.shiftTo('hours', 'minutes');
             }
             const formattedActivationDuration = activationDuration.toHuman();
 
@@ -534,7 +534,7 @@ const main = function() {
             const exitDays = queryResponse.data.beaconchain_exiting / 900.0;
             let exitDuration = Duration.fromObject({ days: exitDays }).shiftTo('days', 'hours').normalize();
             if (exitDuration.days === 0) {
-              exitDuration = exitDuration.shiftTo('hours');
+              exitDuration = exitDuration.shiftTo('hours', 'minutes');
             }
             const formattedExitDuration = exitDuration.toHuman();
 
