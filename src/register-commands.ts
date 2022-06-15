@@ -31,30 +31,40 @@ const commands = [
     .setDescription('Get validators activation and exit queue details from Prater testnet.'),
   new SlashCommandBuilder().setName('queue-ropsten')
     .setDescription('Get validators activation and exit queue details from Ropsten testnet.'),
+  new SlashCommandBuilder().setName('participation-mainnet')
+    .setDescription('Get the current participation rate on Mainnet.'),
 ]
 	.map(command => command.toJSON());
 
 const rest = new REST({ version: '9' }).setToken(token);
 
-// Delete existing commands
-/*rest.get(Routes.applicationGuildCommands(clientId, guildId))
-  .then((retCommands: unknown) => {
-    const objCommands = retCommands as Array<object>;
-    let k: keyof typeof retCommands;
-    for (const k in objCommands) {
-      const command = objCommands[k];
-      console.log(command);
-      const values = Object.values(command);
-      const commandId = values[0];
+const main = function() {
+  return new Promise<void>(async (mainResolve, mainReject) => {
 
-      rest.delete(Routes.applicationGuildCommand(clientId, guildId, commandId))
-        .then(() => console.log(`Successfully deleted ${commandId}.`))
-        .catch(console.error);
+    // Delete existing commands
+    await rest.get(Routes.applicationGuildCommands(clientId, guildId))
+      .then(async (retCommands: unknown) => {
+        const objCommands = retCommands as Array<object>;
+        let k: keyof typeof retCommands;
+        for (const k in objCommands) {
+          const command = objCommands[k];
+          const values = Object.values(command);
+          const commandId = values[0];
 
-    }
-  });*/
+          await rest.delete(Routes.applicationGuildCommand(clientId, guildId, commandId))
+            .then(() => console.log(`Successfully deleted ${commandId}.`))
+            .catch(console.error);
 
-// Register new commands
-rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: commands })
-	.then(() => console.log('Successfully registered application commands.'))
-	.catch(console.error);
+        }
+
+        // Register new commands
+        await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: commands })
+          .then(() => console.log('Successfully registered application commands.'))
+          .catch(console.error);
+      });
+
+  });
+};
+
+main();
+
