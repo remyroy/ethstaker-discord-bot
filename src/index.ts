@@ -36,6 +36,10 @@ interface queueConfig {
   apiUrl: string;
 }
 
+function delay(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 const main = function() {
   return new Promise<void>(async (mainResolve, mainReject) => {
 
@@ -256,6 +260,10 @@ const main = function() {
 
     client.on('ready', () => {
       console.log(`Logged in as ${client.user?.tag}!`);
+    });
+
+    client.on('error', (error: Error) => {
+      console.log(`Discord client error: ${error.message} (${error})`);
     });
 
     client.on('interactionCreate', async interaction => {
@@ -581,11 +589,21 @@ const main = function() {
       }
     });
 
-    client.login(process.env.DISCORD_TOKEN).then(() => {
-      console.log('Discord login successful!');
-    }).catch((error) => {
-      console.log(`Error during Discord login: ${error.message}`);
-    });
+    const discordLogin = function() {
+      return new Promise<void>(async (resolve, reject) => {
+        client.login(process.env.DISCORD_TOKEN).then(() => {
+          console.log('Discord login successful!');
+          resolve();
+        }).catch((error: Error) => {
+          console.log(`Error during Discord login: ${error.message} (${error})`);
+          console.log('Retrying login in 5 seconds...')
+          delay(5000).then(() => discordLogin());
+          reject();
+        });
+      });
+    };
+
+    discordLogin();
 
     let alertChannel: TextChannel | null = null;
 
@@ -870,9 +888,12 @@ const main = function() {
       console.log(evt);
       bnEvents.close();
 
-      bnEvents = new EventSource(bnEventsUrl);
-      bnEvents.addEventListener('head', headEventReceived);
-      bnEvents.onerror = headEventError;
+      console.log('Retrying event source in 5 seconds...')
+      delay(5000).then(() => {
+        bnEvents = new EventSource(bnEventsUrl);
+        bnEvents.addEventListener('head', headEventReceived);
+        bnEvents.onerror = headEventError;
+      });
     };
 
     bnEvents.addEventListener('head', headEventReceived);
