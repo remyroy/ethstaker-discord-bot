@@ -15,6 +15,10 @@ const quickNewRequest = Duration.fromObject({ days: 1 });
 const maxTransactionCost = utils.parseUnits("0.1", "ether");
 const validatorDepositCost = utils.parseUnits("32", "ether");
 
+const EPOCHS_PER_DAY = 225;
+const MIN_PER_EPOCH_CHURN_LIMIT = 4;
+const CHURN_LIMIT_QUOTIENT = 65536;
+
 interface networkConfig {
   network: string;
   currency: string;
@@ -33,11 +37,16 @@ interface networkConfig {
 
 interface queueConfig {
   network: string;
-  apiUrl: string;
+  apiQueueUrl: string;
+
 }
 
 function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function churn_per_day(active_validators: number) {
+  return Math.max(MIN_PER_EPOCH_CHURN_LIMIT, Math.floor(active_validators / CHURN_LIMIT_QUOTIENT)) * EPOCHS_PER_DAY;
 }
 
 const main = function() {
@@ -125,17 +134,17 @@ const main = function() {
 
     queueCommandsConfig.set('queue-mainnet', {
       network: 'Mainnet',
-      apiUrl: 'https://beaconcha.in/api/v1/validators/queue'
+      apiQueueUrl: 'https://beaconcha.in/api/v1/validators/queue'
     });
 
     queueCommandsConfig.set('queue-prater', {
       network: 'Prater',
-      apiUrl: 'https://prater.beaconcha.in/api/v1/validators/queue'
+      apiQueueUrl: 'https://prater.beaconcha.in/api/v1/validators/queue'
     });
 
     queueCommandsConfig.set('queue-ropsten', {
       network: 'Ropsten',
-      apiUrl: 'https://ropsten.beaconcha.in/api/v1/validators/queue'
+      apiQueueUrl: 'https://ropsten.beaconcha.in/api/v1/validators/queue'
     });
 
     const initDb = function(db: Database, faucetCommandsConfig: Map<string, networkConfig>) {
@@ -516,11 +525,15 @@ const main = function() {
 
         const config = queueCommandsConfig.get(commandName) as queueConfig;
         const network = config.network;
-        const apiUrl = config.apiUrl;
+        const apiQueueUrl = config.apiQueueUrl;
 
-        await interaction.reply({ content: `Querying beaconcha.in API for ${network} queue details...`, ephemeral: true });
+        // TODO: Get the actual number of active validators
+        const activeValidators = 1;
+        const churnPerDay = churn_per_day(activeValidators);
+
         try {
-          const response = await axios.get(apiUrl);
+          await interaction.reply({ content: `Querying beaconcha.in API for ${network} queue details...`, ephemeral: true });
+          const response = await axios.get(apiQueueUrl);
           if (response.status !== 200) {
             console.log(`Unexpected status code from querying beaconcha.in API for ${network} queue details. Status code ${response.status} for @${userTag} (${userId}).`);
             await interaction.followUp(`Unexpected status code from querying beaconcha.in API for ${network} queue details. Status code ${response.status} for ${userMention}.`);
@@ -550,7 +563,7 @@ const main = function() {
           let exitQueueMessage = 'The **exit queue** is empty. It should only take a few minutes for a validator to complete a voluntary exit.';
 
           if (queryResponse.data.beaconchain_entering > 0) {
-            const activationDays = queryResponse.data.beaconchain_entering / 900.0;
+            const activationDays = queryResponse.data.beaconchain_entering / churnPerDay;
             let activationDuration = Duration.fromObject({ days: activationDays }).shiftTo('days', 'hours').normalize();
             if (activationDuration.days === 0) {
               activationDuration = activationDuration.shiftTo('hours', 'minutes');
@@ -564,7 +577,7 @@ const main = function() {
             }
           }
           if (queryResponse.data.beaconchain_exiting > 0) {
-            const exitDays = queryResponse.data.beaconchain_exiting / 900.0;
+            const exitDays = queryResponse.data.beaconchain_exiting / churnPerDay;
             let exitDuration = Duration.fromObject({ days: exitDays }).shiftTo('days', 'hours').normalize();
             if (exitDuration.days === 0) {
               exitDuration = exitDuration.shiftTo('hours', 'minutes');
