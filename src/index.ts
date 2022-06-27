@@ -341,185 +341,183 @@ const main = function() {
           existingRequest.set(userId, true);
         }
 
-        // Check for user role
-        await interaction.reply({ content: 'Checking if you have the proper role...', ephemeral: true });
-        const restrictRole = interaction.guild?.roles.cache.find((role) => role.name === process.env.ROLE_NAME);
-        const hasRole = restrictRole === undefined || (interaction.member?.roles as GuildMemberRoleManager).cache.find((role) => role.id === restrictRole?.id) !== undefined;
-        if (!hasRole) {
-          console.log(`You cannot use this command without the ${restrictRole?.name} role for @${userTag} (${userId}).`);
-          await interaction.followUp({
-            content: `You cannot use this command without the ${restrictRole?.name} role for ${userMention}.`,
-            allowedMentions: { parse: ['users'], repliedUser: false }
-          });
-          existingRequest.delete(userId);
-          return;
-        }
+        try {
 
-        // Check the rate limit for this user
-        const tableName = config.requestTable;
-        const rateLimitDuration = config.rateLimitDuration;
-
-        await interaction.editReply('Checking if you are rate-limited...');
-        const lastRequest = await getLastRequest(userId, tableName);
-        let newRequestPart = '';
-        if (lastRequest !== null) {
-          const dtLastRequested = DateTime.fromMillis(lastRequest.lastRequested * 1000);
-          const dtRequestAvailable = dtLastRequested.plus(rateLimitDuration);
-          
-          let durRequestAvailable = dtRequestAvailable.diff(DateTime.utc()).shiftTo('days', 'hours').normalize();
-          if (durRequestAvailable.days === 0) {
-            durRequestAvailable = durRequestAvailable.shiftTo('hours', 'minutes');
-          }
-          const formattedDuration = durRequestAvailable.toHuman();
-
-          if (DateTime.utc() < dtRequestAvailable) {
-            console.log(`You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for @${userTag} (${userId}).`);
+          // Check for user role
+          await interaction.reply({ content: 'Checking if you have the proper role...', ephemeral: true });
+          const restrictRole = interaction.guild?.roles.cache.find((role) => role.name === process.env.ROLE_NAME);
+          const hasRole = restrictRole === undefined || (interaction.member?.roles as GuildMemberRoleManager).cache.find((role) => role.id === restrictRole?.id) !== undefined;
+          if (!hasRole) {
+            console.log(`You cannot use this command without the ${restrictRole?.name} role for @${userTag} (${userId}).`);
             await interaction.followUp({
-              content: `You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for ${userMention}.`,
+              content: `You cannot use this command without the ${restrictRole?.name} role for ${userMention}.`,
               allowedMentions: { parse: ['users'], repliedUser: false }
             });
-            existingRequest.delete(userId);
             return;
-          } else {
-            let negDurRequestAvailable = durRequestAvailable.negate().shiftTo('days', 'hours').normalize();
-            if (negDurRequestAvailable.days === 0) {
-              negDurRequestAvailable = negDurRequestAvailable.shiftTo('hours', 'minutes');
-            }
-            const newRequestFormattedDuration = negDurRequestAvailable.toHuman();
-
-            newRequestPart = ` Your new request was available ${newRequestFormattedDuration} ago.`;
-            if (negDurRequestAvailable.toMillis() <= quickNewRequest.toMillis()) {
-              newRequestPart = newRequestPart.concat(` That was a quick new request! You should consider leaving some for the others.`);
-            }
           }
-        }
 
-        // Potentially resolving the ENS address
-        if (targetAddress.indexOf('.') >= 0) {
-          await interaction.editReply(`Resolving ENS ${targetAddress}...`);
-          try {
-            const resolvedAddress = await mainnetProvider.resolveName(targetAddress);
-            if (resolvedAddress === null) {
-              console.log(`No address found for ENS ${targetAddress} for @${userTag} (${userId}).`);
+          // Check the rate limit for this user
+          const tableName = config.requestTable;
+          const rateLimitDuration = config.rateLimitDuration;
+
+          await interaction.editReply('Checking if you are rate-limited...');
+          const lastRequest = await getLastRequest(userId, tableName);
+          let newRequestPart = '';
+          if (lastRequest !== null) {
+            const dtLastRequested = DateTime.fromMillis(lastRequest.lastRequested * 1000);
+            const dtRequestAvailable = dtLastRequested.plus(rateLimitDuration);
+            
+            let durRequestAvailable = dtRequestAvailable.diff(DateTime.utc()).shiftTo('days', 'hours').normalize();
+            if (durRequestAvailable.days === 0) {
+              durRequestAvailable = durRequestAvailable.shiftTo('hours', 'minutes');
+            }
+            const formattedDuration = durRequestAvailable.toHuman();
+
+            if (DateTime.utc() < dtRequestAvailable) {
+              console.log(`You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for @${userTag} (${userId}).`);
               await interaction.followUp({
-                content: `No address found for ENS ${targetAddress} for ${userMention}.`,
+                content: `You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for ${userMention}.`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
               });
-              existingRequest.delete(userId);
+              return;
+            } else {
+              let negDurRequestAvailable = durRequestAvailable.negate().shiftTo('days', 'hours').normalize();
+              if (negDurRequestAvailable.days === 0) {
+                negDurRequestAvailable = negDurRequestAvailable.shiftTo('hours', 'minutes');
+              }
+              const newRequestFormattedDuration = negDurRequestAvailable.toHuman();
+
+              newRequestPart = ` Your new request was available ${newRequestFormattedDuration} ago.`;
+              if (negDurRequestAvailable.toMillis() <= quickNewRequest.toMillis()) {
+                newRequestPart = newRequestPart.concat(` That was a quick new request! You should consider leaving some for the others.`);
+              }
+            }
+          }
+
+          // Potentially resolving the ENS address
+          if (targetAddress.indexOf('.') >= 0) {
+            await interaction.editReply(`Resolving ENS ${targetAddress}...`);
+            try {
+              const resolvedAddress = await mainnetProvider.resolveName(targetAddress);
+              if (resolvedAddress === null) {
+                console.log(`No address found for ENS ${targetAddress} for @${userTag} (${userId}).`);
+                await interaction.followUp({
+                  content: `No address found for ENS ${targetAddress} for ${userMention}.`,
+                  allowedMentions: { parse: ['users'], repliedUser: false }
+                });
+                return;
+              }
+              targetAddress = resolvedAddress;
+            } catch (error) {
+              console.log(`Error while trying to resolved ENS ${targetAddress} for @${userTag} (${userId}). ${error}`);
+              await interaction.followUp({
+                content: `Error while trying to resolved ENS ${targetAddress} for ${userMention}. ${error}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
               return;
             }
-            targetAddress = resolvedAddress;
+          } else {
+            // Valid address check
+            await interaction.editReply(`Checking if ${targetAddress} is a valid address...`);
+            if (!utils.isAddress(targetAddress)) {
+              console.log(`The wallet address provided (${targetAddress}) is not valid for @${userTag} (${userId})`);
+              await interaction.followUp({
+                content: `The wallet address provided (${targetAddress}) is not valid for ${userMention}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              return
+            }
+          }
+
+          // Verify that the targetAddress balance does not already have enough currency
+          const currency = config.currency;
+          const provider = config.provider;
+          const requestAmount = config.requestAmount;
+          let sendingAmount = requestAmount;
+
+          await interaction.editReply(`Checking if you already have enough ${currency}...`);
+          try {
+            const targetBalance = await provider.getBalance(targetAddress);
+            if (targetBalance.gte(requestAmount)) {
+              await storeLastRequest(userId, targetAddress, tableName);
+
+              const enoughReason = config.enoughReason;
+              console.log(`You already have ${utils.formatEther(targetBalance)} ${currency} in ${targetAddress}. ${enoughReason} for @${userTag} (${userId}).`);
+              await interaction.followUp({
+                content: `You already have ${utils.formatEther(targetBalance)} ${currency} in ${targetAddress}. ${enoughReason} for ${userMention}.`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              return;
+            }
+            sendingAmount = requestAmount.sub(targetBalance);
           } catch (error) {
-            console.log(`Error while trying to resolved ENS ${targetAddress} for @${userTag} (${userId}). ${error}`);
-            await interaction.followUp({
-              content: `Error while trying to resolved ENS ${targetAddress} for ${userMention}. ${error}`,
-              allowedMentions: { parse: ['users'], repliedUser: false }
-            });
-            existingRequest.delete(userId);
+            console.log(`Error while trying to get balance from ${targetAddress} for @${userTag} (${userId}). ${error}`);
+            await interaction.followUp(`Error while trying to get balance from ${targetAddress} for ${userMention}. ${error}`);
             return;
           }
-        } else {
-          // Valid address check
-          await interaction.editReply(`Checking if ${targetAddress} is a valid address...`);
-          if (!utils.isAddress(targetAddress)) {
-            console.log(`The wallet address provided (${targetAddress}) is not valid for @${userTag} (${userId})`);
-            await interaction.followUp({
-              content: `The wallet address provided (${targetAddress}) is not valid for ${userMention}`,
-              allowedMentions: { parse: ['users'], repliedUser: false }
-            });
-            existingRequest.delete(userId);
-            return
+
+          // Verify that we have enough currency left in the faucet
+          const wallet = config.wallet;
+          const network = config.network;
+          const minNeeded = sendingAmount.add(maxTransactionCost);
+          let faucetBalance = BigNumber.from(0);
+
+          await interaction.editReply('Checking if we have enough fund for this request...');
+          try {
+            faucetBalance = await wallet.getBalance();
+            if (faucetBalance.lt(minNeeded)) {
+              console.log(`The ${network} faucet is empty. Please contact an administrator to fill it up. From @${userTag} (${userId}).`);
+              await interaction.followUp({
+                content: `The ${network} faucet is empty. Please contact an administrator to fill it up. From ${userMention}.`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              return;
+            }
+          } catch (error) {
+            console.log(`Error while trying to get balance from the ${network} faucet for @${userTag} (${userId}). ${error}`);
+            await interaction.followUp(`Error while trying to get balance from the ${network} faucet for ${userMention}. ${error}`);
+            return;
           }
-        }
 
-        // Verify that the targetAddress balance does not already have enough currency
-        const currency = config.currency;
-        const provider = config.provider;
-        const requestAmount = config.requestAmount;
-        let sendingAmount = requestAmount;
-
-        await interaction.editReply(`Checking if you already have enough ${currency}...`);
-        try {
-          const targetBalance = await provider.getBalance(targetAddress);
-          if (targetBalance.gte(requestAmount)) {
+          // Send the currency
+          await interaction.editReply(`Sending ${utils.formatEther(sendingAmount)} ${currency} to ${targetAddress}...`);
+          try {
+            const transaction = await wallet.sendTransaction({
+              to: targetAddress,
+              value: sendingAmount
+            });
+            
             await storeLastRequest(userId, targetAddress, tableName);
 
-            const enoughReason = config.enoughReason;
-            console.log(`You already have ${utils.formatEther(targetBalance)} ${currency} in ${targetAddress}. ${enoughReason} for @${userTag} (${userId}).`);
+            const transactionHash = transaction.hash;
+            const explorerTxRoot = config.explorerTxRoot;
+            const explorerTxURL = explorerTxRoot + transactionHash;
+            await interaction.editReply(`${utils.formatEther(sendingAmount)} ${currency} have been sent to ${targetAddress}. Explore that transaction on ${explorerTxURL}. Waiting for 1 confirm...`);
+            await transaction.wait(1);
+            await interaction.editReply(`Transaction confirmed with 1 block confirmation.`);
+            
+            const remainingRequests = faucetBalance.sub(sendingAmount).div(requestAmount);
+            console.log(`${utils.formatEther(sendingAmount)} ${currency} have been sent to ${targetAddress} for @${userTag} (${userId}).${newRequestPart}`);
+            console.log(`There are ${remainingRequests} remaining requests with the current balance.`);
+
             await interaction.followUp({
-              content: `You already have ${utils.formatEther(targetBalance)} ${currency} in ${targetAddress}. ${enoughReason} for ${userMention}.`,
-              allowedMentions: { parse: ['users'], repliedUser: false }
-            });
-            existingRequest.delete(userId);
-            return;
+              content: `${utils.formatEther(sendingAmount)} ${currency} have been sent to ${targetAddress} for ${userMention}.${newRequestPart} Explore that transaction on ${explorerTxURL}\n\nThere are ${remainingRequests} remaining requests with the current balance.`,
+              allowedMentions: { parse: ['users'], repliedUser: false },
+              flags: MessageFlags.SuppressEmbeds });
+
+          } catch (error) {
+            console.log(`Error while trying to send ${utils.formatEther(sendingAmount)} ${currency} to ${targetAddress} for @${userTag} (${userId}). ${error}`);
+            await interaction.followUp(`Error while trying to send ${utils.formatEther(sendingAmount)} ${currency} to ${targetAddress} for ${userMention}. ${error}`);
           }
-          sendingAmount = requestAmount.sub(targetBalance);
-        } catch (error) {
-          console.log(`Error while trying to get balance from ${targetAddress} for @${userTag} (${userId}). ${error}`);
-          await interaction.followUp(`Error while trying to get balance from ${targetAddress} for ${userMention}. ${error}`);
-          existingRequest.delete(userId);
-          return;
-        }
-
-        // Verify that we have enough currency left in the faucet
-        const wallet = config.wallet;
-        const network = config.network;
-        const minNeeded = sendingAmount.add(maxTransactionCost);
-        let faucetBalance = BigNumber.from(0);
-
-        await interaction.editReply('Checking if we have enough fund for this request...');
-        try {
-          faucetBalance = await wallet.getBalance();
-          if (faucetBalance.lt(minNeeded)) {
-            console.log(`The ${network} faucet is empty. Please contact an administrator to fill it up. From @${userTag} (${userId}).`);
-            await interaction.followUp({
-              content: `The ${network} faucet is empty. Please contact an administrator to fill it up. From ${userMention}.`,
-              allowedMentions: { parse: ['users'], repliedUser: false }
-            });
-            existingRequest.delete(userId);
-            return;
-          }
-        } catch (error) {
-          console.log(`Error while trying to get balance from the ${network} faucet for @${userTag} (${userId}). ${error}`);
-          await interaction.followUp(`Error while trying to get balance from the ${network} faucet for ${userMention}. ${error}`);
-          existingRequest.delete(userId);
-          return;
-        }
-
-        // Send the currency
-        await interaction.editReply(`Sending ${utils.formatEther(sendingAmount)} ${currency} to ${targetAddress}...`);
-        try {
-          const transaction = await wallet.sendTransaction({
-            to: targetAddress,
-            value: sendingAmount
-          });
-          
-          await storeLastRequest(userId, targetAddress, tableName);
-
-          const transactionHash = transaction.hash;
-          const explorerTxRoot = config.explorerTxRoot;
-          const explorerTxURL = explorerTxRoot + transactionHash;
-          await interaction.editReply(`${utils.formatEther(sendingAmount)} ${currency} have been sent to ${targetAddress}. Explore that transaction on ${explorerTxURL}. Waiting for 1 confirm...`);
-          await transaction.wait(1);
-          await interaction.editReply(`Transaction confirmed with 1 block confirmation.`);
-          
-          const remainingRequests = faucetBalance.sub(sendingAmount).div(requestAmount);
-          console.log(`${utils.formatEther(sendingAmount)} ${currency} have been sent to ${targetAddress} for @${userTag} (${userId}).${newRequestPart}`);
-          console.log(`There are ${remainingRequests} remaining requests with the current balance.`);
-
-          await interaction.followUp({
-            content: `${utils.formatEther(sendingAmount)} ${currency} have been sent to ${targetAddress} for ${userMention}.${newRequestPart} Explore that transaction on ${explorerTxURL}\n\nThere are ${remainingRequests} remaining requests with the current balance.`,
-            allowedMentions: { parse: ['users'], repliedUser: false },
-            flags: MessageFlags.SuppressEmbeds });
-          
-            existingRequest.delete(userId);
 
         } catch (error) {
-          console.log(`Error while trying to send ${utils.formatEther(sendingAmount)} ${currency} to ${targetAddress} for @${userTag} (${userId}). ${error}`);
-          await interaction.followUp(`Error while trying to send ${utils.formatEther(sendingAmount)} ${currency} to ${targetAddress} for ${userMention}. ${error}`);
-          existingRequest.delete(userId);
-          return;
+          console.log(`Unexpected error while using the ${commandName} command for @${userTag} (${userId}). ${error}`);
+          await interaction.followUp(`Unexpected error while using the ${commandName} command for ${userMention}. ${error}`);
         }
+        finally {
+          existingRequest.delete(userId);
+        }
+
       } else if (queueCommandsConfig.has(commandName)) {
         console.log(`${commandName} from ${userTag} (${userId})`);
 
