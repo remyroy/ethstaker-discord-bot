@@ -624,7 +624,10 @@ const main = function() {
           ` you can use these online faucets https://faucetlink.to/goerli for ${userMention}`
           );
         
-        interaction.reply(msg);
+        interaction.reply({
+          content: msg,
+          flags: MessageFlags.SuppressEmbeds
+        });
 
       } else if (commandName === 'ropsten-eth-msg') {
         console.log(`${commandName} from ${userTag} (${userId})`);
@@ -654,7 +657,10 @@ const main = function() {
           ` you can use these online faucets https://faucetlink.to/ropsten for ${userMention}`
           );
         
-        interaction.reply(msg);
+        interaction.reply({
+          content: msg,
+          flags: MessageFlags.SuppressEmbeds
+        });
 
       }
     });
