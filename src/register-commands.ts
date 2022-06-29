@@ -33,6 +33,20 @@ const commands = [
     .setDescription('Get validators activation and exit queue details from Ropsten testnet.'),
   new SlashCommandBuilder().setName('participation-mainnet')
     .setDescription('Get the current participation rate on Mainnet.'),
+  new SlashCommandBuilder()
+    .setName('goeth-msg')
+    .setDescription('Explain how to get Goerli ETH to someone else.')
+    .addUserOption(option => option
+      .setName('user')
+      .setDescription('An optional user to ping with the message.')
+      .setRequired(false)),
+  new SlashCommandBuilder()
+    .setName('ropsten-eth-msg')
+    .setDescription('Explain how to get Ropsten ETH to someone else.')
+    .addUserOption(option => option
+      .setName('user')
+      .setDescription('An optional user to ping with the message.')
+      .setRequired(false)),
 ]
 	.map(command => command.toJSON());
 

@@ -38,7 +38,6 @@ interface networkConfig {
 interface queueConfig {
   network: string;
   apiQueueUrl: string;
-
 }
 
 function delay(ms: number) {
@@ -596,6 +595,66 @@ const main = function() {
           console.log(`Error while trying to query beaconcha.in API for ${network} queue details for @${userTag} (${userId}). ${error}`);
           await interaction.followUp(`Error while trying to query beaconcha.in API for ${network} queue details for ${userMention}. ${error}`);
         }
+
+      } else if (commandName === 'goeth-msg') {
+        console.log(`${commandName} from ${userTag} (${userId})`);
+
+        const channelName = process.env.GOERLI_CHANNEL_NAME;
+        let channelMention = '';
+
+        if (channelName !== undefined && channelName !== '') {
+          const requestChannel = interaction.guild?.channels.cache.find((channel) => channel.name === channelName);
+          if (requestChannel !== undefined) {
+            channelMention = Formatters.channelMention(requestChannel.id);
+          }
+        }
+
+        const brightIdMention = Formatters.channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
+
+        let targetUser = 'You';
+
+        const inputUser = interaction.options.getUser('user', false);
+        if (inputUser !== null) {
+          targetUser = Formatters.userMention(inputUser.id);
+        }
+
+        const msg = (
+          `${targetUser} can request Goerli ETH to run a validator on Prater on ${channelMention}` +
+          ` but first, you will need to be BrightID verified in ${brightIdMention}. Alternatively` +
+          ` you can use these online faucets https://faucetlink.to/goerli for ${userMention}`
+          );
+        
+        interaction.reply(msg);
+
+      } else if (commandName === 'ropsten-eth-msg') {
+        console.log(`${commandName} from ${userTag} (${userId})`);
+
+        const channelName = process.env.ROPSTEN_CHANNEL_NAME;
+        let channelMention = '';
+
+        if (channelName !== undefined && channelName !== '') {
+          const requestChannel = interaction.guild?.channels.cache.find((channel) => channel.name === channelName);
+          if (requestChannel !== undefined) {
+            channelMention = Formatters.channelMention(requestChannel.id);
+          }
+        }
+
+        const brightIdMention = Formatters.channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
+
+        let targetUser = 'You';
+
+        const inputUser = interaction.options.getUser('user', false);
+        if (inputUser !== null) {
+          targetUser = Formatters.userMention(inputUser.id);
+        }
+
+        const msg = (
+          `${targetUser} can request Ropsten ETH to run a validator on Ropsten on ${channelMention}` +
+          ` but first, you will need to be BrightID verified in ${brightIdMention}. Alternatively` +
+          ` you can use these online faucets https://faucetlink.to/ropsten for ${userMention}`
+          );
+        
+        interaction.reply(msg);
 
       }
     });
