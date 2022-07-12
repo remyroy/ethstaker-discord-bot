@@ -293,7 +293,7 @@ const main = function() {
           const fixedParticipationRate = (currentParticipationRate * 100.0).toLocaleString('en-US', { maximumFractionDigits: 2 }) + '%';
 
           const dtLastChecked = DateTime.fromMillis(currentParticipationRateDate as number);
-          let durLastChecked = dtLastChecked.diff(DateTime.utc()).shiftTo('minutes', 'seconds').normalize();
+          let durLastChecked = DateTime.utc().diff(dtLastChecked).shiftTo('minutes', 'seconds').normalize();
           if (durLastChecked.minutes === 0) {
             durLastChecked = durLastChecked.shiftTo('seconds');
           }
@@ -302,7 +302,7 @@ const main = function() {
 
           console.log(`Current participation rate for epoch ${currentParticipationRateEpoch} (${participationRateDuration} ago) is ${fixedParticipationRate} on Mainnet for @${userTag} (${userId}).`);
           await interaction.reply({
-            content: `Current participation rate for epoch ${currentParticipationRateEpoch} (${participationRateDuration} ago) is ${fixedParticipationRate} on Mainnet for ${userMention}.`,
+            content: `Current participation rate for epoch **${currentParticipationRateEpoch}** (${participationRateDuration} ago) is **${fixedParticipationRate}** on Mainnet for ${userMention}.`,
             allowedMentions: { parse: ['users'], repliedUser: false }
           });
         } else {
