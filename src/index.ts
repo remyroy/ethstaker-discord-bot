@@ -213,6 +213,7 @@ const main = function() {
 
     let currentParticipationRate: number | null = null;
     let currentParticipationRateEpoch: number | null = null;
+    let currentParticipationRateDate: number | null = null;
     const twoThird = 2 / 3;
 
     const getLastRequest = function(userId: string, tableName: string) {
@@ -288,12 +289,20 @@ const main = function() {
       } else if (commandName === 'participation-mainnet') {
         console.log(`${commandName} from ${userTag} (${userId})`);
 
-        if (currentParticipationRate !== null && currentParticipationRateEpoch !== null) {
+        if (currentParticipationRate !== null && currentParticipationRateEpoch !== null && currentParticipationRateDate !== null) {
           const fixedParticipationRate = (currentParticipationRate * 100.0).toLocaleString('en-US', { maximumFractionDigits: 2 }) + '%';
 
-          console.log(`Current participation rate for epoch ${currentParticipationRateEpoch} is ${fixedParticipationRate} on Mainnet for @${userTag} (${userId}).`);
+          const dtLastChecked = DateTime.fromMillis(currentParticipationRateDate as number);
+          let durLastChecked = dtLastChecked.diff(DateTime.utc()).shiftTo('minutes', 'seconds').normalize();
+          if (durLastChecked.minutes === 0) {
+            durLastChecked = durLastChecked.shiftTo('seconds');
+          }
+
+          const participationRateDuration = durLastChecked.toHuman();
+
+          console.log(`Current participation rate for epoch ${currentParticipationRateEpoch} (${participationRateDuration} ago) is ${fixedParticipationRate} on Mainnet for @${userTag} (${userId}).`);
           await interaction.reply({
-            content: `Current participation rate for epoch ${currentParticipationRateEpoch} is ${fixedParticipationRate} on Mainnet for ${userMention}.`,
+            content: `Current participation rate for epoch ${currentParticipationRateEpoch} (${participationRateDuration} ago) is ${fixedParticipationRate} on Mainnet for ${userMention}.`,
             allowedMentions: { parse: ['users'], repliedUser: false }
           });
         } else {
@@ -731,6 +740,7 @@ const main = function() {
 
           const participationRate = queryResponse.data.previous_epoch_target_attesting_gwei / queryResponse.data.previous_epoch_active_gwei;
           const fixedParticipationRate = (participationRate * 100.0).toLocaleString('en-US', { maximumFractionDigits: 2 }) + '%';
+          const participationRateDate = DateTime.utc().toMillis();
 
           console.log(`Participation rate for epoch ${epoch} is ${fixedParticipationRate}.`);
 
@@ -827,6 +837,7 @@ const main = function() {
 
           currentParticipationRate = participationRate;
           currentParticipationRateEpoch = epoch;
+          currentParticipationRateDate = participationRateDate;
 
         } catch (error) {
           console.log(`Error while trying to query Validator Inclusion API for epoch ${epoch} details. ${error}`);
