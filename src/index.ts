@@ -884,7 +884,7 @@ const main = function() {
     const headEventReceived = async function(evt: MessageEvent<any>) {
       const eventData = JSON.parse(evt.data) as headEvent;
       if (eventData.epoch_transition) {
-        const epoch = eventData.slot / 32;
+        const epoch = Math.floor(eventData.slot / 32);
         console.log(`Epoch transition on slot ${eventData.slot} for epoch ${epoch}.`);
 
         const previousEpoch = epoch - 1;
