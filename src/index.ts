@@ -80,7 +80,7 @@ const main = function() {
       channel: process.env.GOERLI_CHANNEL_NAME,
       enoughReason: 'It should be plenty already for a validator deposit',
       requestTable: 'request',
-      rateLimitDuration: Duration.fromObject({ weeks: 3 }),
+      rateLimitDuration: Duration.fromObject({ weeks: 4 }),
       explorerTxRoot: 'https://goerli.etherscan.io/tx/',
       existingRequest: new Map<string, boolean>(),
       minEthers: validatorDepositCost.add(maxTransactionCost.mul(2)),
