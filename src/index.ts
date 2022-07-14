@@ -416,9 +416,9 @@ const main = function() {
             }
 
             const formattedDuration = durRandom.toHuman();
-            console.log(`You cannot do another request this soon 👨‍🌾. You will need to wait at least ${formattedDuration} before you can request again for @${userTag} (${userId}).`);
+            console.log(`You cannot do another request this soon my friend. You will need to wait at least ${formattedDuration} before you can request again for @${userTag} (${userId}).`);
               await interaction.followUp({
-                content: `You cannot do another request this soon 👨‍🌾. You will need to wait at least ${formattedDuration} before you can request again for ${userMention}.`,
+                content: `You cannot do another request this soon my friend. You will need to wait at least ${formattedDuration} before you can request again for ${userMention}.`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
               });
             return;
