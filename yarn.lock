@@ -627,6 +627,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/seedrandom@npm:^3.0.2":
+  version: 3.0.2
+  resolution: "@types/seedrandom@npm:3.0.2"
+  checksum: 02e585601cb9764cb0eb3f92b384512f8e171422acea3d5a801a41a8a06d475b60ae520eba469bcedf0ed8ad650415919cf30a9cd6bc57090613e61bedc071ed
+  languageName: node
+  linkType: hard
+
 "@types/sqlite3@npm:^3.1.8":
   version: 3.1.8
   resolution: "@types/sqlite3@npm:3.1.8"
@@ -1732,6 +1739,7 @@ __metadata:
     "@tsconfig/node16": ^1.0.2
     "@types/eventsource": ^1.1.8
     "@types/luxon": ^2.3.2
+    "@types/seedrandom": ^3.0.2
     "@types/sqlite3": ^3.1.8
     axios: ^0.27.2
     bufferutil: ^4.0.6
@@ -1744,6 +1752,7 @@ __metadata:
     gulp: ^4.0.2
     gulp-typescript: ^6.0.0-alpha.1
     luxon: ^2.4.0
+    seedrandom: ^3.0.5
     sqlite3: ^5.0.8
     typescript: ^4.7.2
     utf-8-validate: ^5.0.9
@@ -4000,6 +4009,13 @@ __metadata:
   version: 3.0.1
   resolution: "scrypt-js@npm:3.0.1"
   checksum: b7c7d1a68d6ca946f2fbb0778e0c4ec63c65501b54023b2af7d7e9f48fdb6c6580d6f7675cd53bda5944c5ebc057560d5a6365079752546865defb3b79dea454
+  languageName: node
+  linkType: hard
+
+"seedrandom@npm:^3.0.5":
+  version: 3.0.5
+  resolution: "seedrandom@npm:3.0.5"
+  checksum: 728b56bc3bc1b9ddeabd381e449b51cb31bdc0aa86e27fcd0190cea8c44613d5bcb2f6bb63ed79f78180cbe791c20b8ec31a9627f7b7fc7f476fd2bdb7e2da9f
   languageName: node
   linkType: hard
 

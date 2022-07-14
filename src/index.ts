@@ -9,6 +9,7 @@ import { DateTime, Duration } from 'luxon';
 
 import EventSource from 'eventsource';
 import axios from 'axios';
+import seedrandom from 'seedrandom';
 
 const db = new Database('db.sqlite');
 const quickNewRequest = Duration.fromObject({ days: 1 });
@@ -400,6 +401,26 @@ const main = function() {
                 newRequestPart = newRequestPart.concat(` That was a quick new request! You should consider leaving some for the others.`);
               }
             }
+          }
+
+          // Check for farmer role
+          const hasFarmerRole = (interaction.member?.roles as GuildMemberRoleManager).cache.find((role) => Number(role.id) === Number(process.env.FARMER_ROLE_ID)) !== undefined;
+          if (hasFarmerRole) {
+
+            const rng = seedrandom(userId);
+            const randomDate = DateTime.fromMillis(rng() * rateLimitDuration.days * 24 * 60 * 60 * 1000);
+            let durRandom = DateTime.utc().diff(randomDate).set({ years: 0, quarters: 0, months: 0, weeks: 0 }).shiftTo('days', 'hours').normalize();
+            if (durRandom.days === 0) {
+              durRandom = durRandom.shiftTo('hours', 'minutes');
+            }
+
+            const formattedDuration = durRandom.toHuman();
+            console.log(`You cannot do another request this soon 👨‍🌾. You will need to wait at least ${formattedDuration} before you can request again for @${userTag} (${userId}).`);
+              await interaction.followUp({
+                content: `You cannot do another request this soon 👨‍🌾. You will need to wait at least ${formattedDuration} before you can request again for ${userMention}.`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+            return;
           }
 
           // Potentially resolving the ENS address
