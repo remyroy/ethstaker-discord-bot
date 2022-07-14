@@ -12,7 +12,7 @@ import axios from 'axios';
 
 const db = new Database('db.sqlite');
 const quickNewRequest = Duration.fromObject({ days: 1 });
-const maxTransactionCost = utils.parseUnits("0.1", "ether");
+const maxTransactionCost = utils.parseUnits("0.05", "ether");
 const validatorDepositCost = utils.parseUnits("32", "ether");
 
 const EPOCHS_PER_DAY = 225;
