@@ -410,6 +410,7 @@ const main = function() {
             const rng = seedrandom(userId);
             const randomDate = DateTime.fromMillis(rng() * rateLimitDuration.days * 24 * 60 * 60 * 1000);
             let durRandom = DateTime.utc().diff(randomDate).set({ years: 0, quarters: 0, months: 0, weeks: 0 }).shiftTo('days', 'hours').normalize();
+            durRandom.set({ days: durRandom.days % rateLimitDuration.days });
             if (durRandom.days === 0) {
               durRandom = durRandom.shiftTo('hours', 'minutes');
             }
