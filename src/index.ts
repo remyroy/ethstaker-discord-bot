@@ -273,7 +273,8 @@ const main = function() {
     });
 
     client.on('error', (error: Error) => {
-      console.log(`Discord client error: ${error.message} (${error})`);
+      console.log(`Discord client error: ${error}`);
+      console.log(error);
     });
 
     client.on('interactionCreate', async interaction => {
@@ -440,6 +441,7 @@ const main = function() {
               targetAddress = resolvedAddress;
             } catch (error) {
               console.log(`Error while trying to resolved ENS ${targetAddress} for @${userTag} (${userId}). ${error}`);
+              console.log(error);
               await interaction.followUp({
                 content: `Error while trying to resolved ENS ${targetAddress} for ${userMention}. ${error}`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
@@ -482,6 +484,7 @@ const main = function() {
             sendingAmount = requestAmount.sub(targetBalance);
           } catch (error) {
             console.log(`Error while trying to get balance from ${targetAddress} for @${userTag} (${userId}). ${error}`);
+            console.log(error);
             await interaction.followUp(`Error while trying to get balance from ${targetAddress} for ${userMention}. ${error}`);
             return;
           }
@@ -505,6 +508,7 @@ const main = function() {
             }
           } catch (error) {
             console.log(`Error while trying to get balance from the ${network} faucet for @${userTag} (${userId}). ${error}`);
+            console.log(error);
             await interaction.followUp(`Error while trying to get balance from the ${network} faucet for ${userMention}. ${error}`);
             return;
           }
@@ -537,6 +541,7 @@ const main = function() {
 
           } catch (error) {
             console.log(`Error while trying to send ${utils.formatEther(sendingAmount)} ${currency} to ${targetAddress} for @${userTag} (${userId}). ${error}`);
+            console.log(error);
             await interaction.followUp(`Error while trying to send ${utils.formatEther(sendingAmount)} ${currency} to ${targetAddress} for ${userMention}. ${error}`);
           }
 
@@ -625,6 +630,7 @@ const main = function() {
           
         } catch (error) {
           console.log(`Error while trying to query beaconcha.in API for ${network} queue details for @${userTag} (${userId}). ${error}`);
+          console.log(error);
           await interaction.followUp(`Error while trying to query beaconcha.in API for ${network} queue details for ${userMention}. ${error}`);
         }
 
@@ -778,6 +784,7 @@ const main = function() {
               console.log(message);
               alertOnDiscord(message).catch((error) => {
                 console.log(`Unable to send alert on discord. ${error}`);
+                console.log(error);
               });
             }
           } else if (participationRate < 0.7) {
@@ -790,6 +797,7 @@ const main = function() {
               console.log(message);
               alertOnDiscord(message).catch((error) => {
                 console.log(`Unable to send alert on discord. ${error}`);
+                console.log(error);
               });
             } else if (participationRateAlertTriggering.belowTwoThird) {
               participationRateAlertTriggering.belowTwoThird = false;
@@ -798,6 +806,7 @@ const main = function() {
               console.log(message);
               alertOnDiscord(message).catch((error) => {
                 console.log(`Unable to send alert on discord. ${error}`);
+                console.log(error);
               });
             }
           } else if (participationRate < 0.8) {
@@ -809,6 +818,7 @@ const main = function() {
               console.log(message);
               alertOnDiscord(message).catch((error) => {
                 console.log(`Unable to send alert on discord. ${error}`);
+                console.log(error);
               });
             } else if (participationRateAlertTriggering.below70) {
               participationRateAlertTriggering.below70 = false;
@@ -817,6 +827,7 @@ const main = function() {
               console.log(message);
               alertOnDiscord(message).catch((error) => {
                 console.log(`Unable to send alert on discord. ${error}`);
+                console.log(error);
               });
             }
 
@@ -830,6 +841,7 @@ const main = function() {
               console.log(message);
               alertOnDiscord(message).catch((error) => {
                 console.log(`Unable to send alert on discord. ${error}`);
+                console.log(error);
               });
             } else if (participationRateAlertTriggering.below80) {
               participationRateAlertTriggering.below80 = false;
@@ -838,6 +850,7 @@ const main = function() {
               console.log(message);
               alertOnDiscord(message).catch((error) => {
                 console.log(`Unable to send alert on discord. ${error}`);
+                console.log(error);
               });
             }
 
@@ -850,6 +863,7 @@ const main = function() {
               console.log(message);
               alertOnDiscord(message).catch((error) => {
                 console.log(`Unable to send alert on discord. ${error}`);
+                console.log(error);
               });
             }
             participationRateAlertTriggering.below90 = false;
@@ -864,6 +878,7 @@ const main = function() {
 
         } catch (error) {
           console.log(`Error while trying to query Validator Inclusion API for epoch ${epoch} details. ${error}`);
+          console.log(error);
         }
       });
     };
@@ -985,11 +1000,13 @@ const main = function() {
           const message = `🚨 We just found **slashings** on Mainnet at slot ${slot} 🚨\n${attestationSlashingsMessage}${proposerSlashingMessage}`;
           alertOnDiscord(message).catch((error) => {
             console.log(`Unable to send alert on discord. ${error}`);
+            console.log(error);
           });
         }
 
       } catch (error) {
         console.log(`Error while trying to query beacon node API for ${bnBlockUrl}. ${error}`);
+        console.log(error);
       }
 
     };
