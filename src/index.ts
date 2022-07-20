@@ -409,9 +409,10 @@ const main = function() {
           if (hasFarmerRole) {
 
             const rng = seedrandom(userId);
-            const randomDate = DateTime.fromMillis(rng() * rateLimitDuration.days * 24 * 60 * 60 * 1000).set({ year: 3000 });
+            const rateLimitDays = rateLimitDuration.shiftTo('days').days;
+            const randomDate = DateTime.fromMillis(rng() * rateLimitDays * 24 * 60 * 60 * 1000).set({ year: 3000 });
             let durRandom = randomDate.diff(DateTime.utc()).shiftTo('days', 'hours').normalize();
-            durRandom = durRandom.set({ days: durRandom.days % rateLimitDuration.days });
+            durRandom = durRandom.set({ days: durRandom.days % rateLimitDays });
             if (durRandom.days === 0) {
               durRandom = durRandom.shiftTo('hours', 'minutes');
             }
