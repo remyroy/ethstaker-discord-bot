@@ -404,7 +404,7 @@ const main = function() {
           }
 
           // Check for farmer role
-          const hasFarmerRole = (interaction.member?.roles as GuildMemberRoleManager).cache.find((role) => Number(role.id) === Number(process.env.FARMER_ROLE_ID)) !== undefined;
+          const hasFarmerRole = (interaction.member?.roles as GuildMemberRoleManager).cache.find((role) => role.id.trim() === process.env.FARMER_ROLE_ID?.trim()) !== undefined;
           if (hasFarmerRole) {
 
             const rng = seedrandom(userId);
