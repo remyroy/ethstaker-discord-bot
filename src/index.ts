@@ -542,6 +542,7 @@ const main = function() {
 
         } catch (error) {
           console.log(`Unexpected error while using the ${commandName} command for @${userTag} (${userId}). ${error}`);
+          console.log(error);
           await interaction.followUp(`Unexpected error while using the ${commandName} command for ${userMention}. ${error}`);
         }
         finally {
