@@ -122,7 +122,7 @@ const main = function() {
       explorerTxRoot: 'https://sepolia.etherscan.io/tx/',
       existingRequest: new Map<string, boolean>(),
       minEthers: validatorDepositCost.add(maxTransactionCost.mul(2)),
-      requestAmount: validatorDepositCost.add(maxTransactionCost),
+      requestAmount: utils.parseUnits("1", "ether"),
       wallet: new Wallet(process.env.FAUCET_PRIVATE_KEY as string, sepoliaProvider),
       provider: sepoliaProvider,
     });
