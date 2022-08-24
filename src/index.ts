@@ -61,7 +61,7 @@ const main = function() {
 
     const goerliProvider = new providers.InfuraProvider(providers.getNetwork('goerli'), process.env.INFURA_API_KEY);
     const ropstenProvider = new providers.InfuraProvider(providers.getNetwork('ropsten'), process.env.INFURA_API_KEY);
-    const sepoliaProvider = new providers.InfuraProvider(providers.getNetwork('sepolia'), process.env.INFURA_API_KEY);
+    const sepoliaProvider = new providers.InfuraProvider('sepolia', process.env.INFURA_API_KEY);
 
     goerliProvider.getBlockNumber()
     .then((currentBlockNumber) => {
