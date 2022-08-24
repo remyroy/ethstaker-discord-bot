@@ -24,11 +24,18 @@ const commands = [
       .setName('address')
       .setDescription('A valid Ethereum address. It can be a full address or an ENS.')
       .setRequired(true)),
+  new SlashCommandBuilder()
+    .setName('request-sepolia-eth')
+    .setDescription('Request some funds for testing transactions on the Sepolia testnet to be transfered into your wallet.')
+    .addStringOption(option => option
+      .setName('address')
+      .setDescription('A valid Ethereum address. It can be a full address or an ENS.')
+      .setRequired(true)),
 	new SlashCommandBuilder().setName('ping').setDescription('Replies with pong!'),
   new SlashCommandBuilder().setName('queue-mainnet')
     .setDescription('Get validators activation and exit queue details from Mainnet.'),
-  new SlashCommandBuilder().setName('queue-prater')
-    .setDescription('Get validators activation and exit queue details from Prater testnet.'),
+  new SlashCommandBuilder().setName('queue-goerli')
+    .setDescription('Get validators activation and exit queue details from Goerli testnet.'),
   new SlashCommandBuilder().setName('queue-ropsten')
     .setDescription('Get validators activation and exit queue details from Ropsten testnet.'),
   new SlashCommandBuilder().setName('participation-mainnet')

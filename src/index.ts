@@ -137,9 +137,9 @@ const main = function() {
       apiQueueUrl: 'https://beaconcha.in/api/v1/validators/queue'
     });
 
-    queueCommandsConfig.set('queue-prater', {
-      network: 'Prater',
-      apiQueueUrl: 'https://prater.beaconcha.in/api/v1/validators/queue'
+    queueCommandsConfig.set('queue-goerli', {
+      network: 'Goerli',
+      apiQueueUrl: 'https://goerli.beaconcha.in/api/v1/validators/queue'
     });
 
     queueCommandsConfig.set('queue-ropsten', {
@@ -658,7 +658,7 @@ const main = function() {
         }
 
         const msg = (
-          `${targetUser} can request Goerli ETH to run a validator on Prater on ${channelMention}` +
+          `${targetUser} can request Goerli ETH to run a validator on Goerli on ${channelMention}` +
           ` but first, you will need to be BrightID verified in ${brightIdMention}. Alternatively` +
           ` you can use these online faucets https://faucetlink.to/goerli for ${userMention}`
           );
