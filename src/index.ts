@@ -1,7 +1,7 @@
 import { config } from 'dotenv';
 config();
 
-import { Client, GatewayIntentBits, Formatters, GuildMemberRoleManager, TextChannel } from 'discord.js';
+import { Client, GatewayIntentBits, userMention, channelMention, GuildMemberRoleManager, TextChannel } from 'discord.js';
 import { BigNumber, providers, utils, Wallet } from 'ethers';
 import { Database } from 'sqlite3';
 import { MessageFlags } from 'discord-api-types/v9';
@@ -283,7 +283,7 @@ const main = function() {
       const { commandName } = interaction;
       const userTag = interaction.user.tag;
       const userId = interaction.user.id;
-      const userMention = Formatters.userMention(userId);
+      const userMen = userMention(userId);
 
       if (commandName === 'ping') {
         console.log(`Ping from ${userTag} (${userId})!`);
@@ -304,13 +304,13 @@ const main = function() {
 
           console.log(`Current participation rate for epoch ${currentParticipationRateEpoch} (${participationRateDuration} ago) is ${fixedParticipationRate} on Mainnet for @${userTag} (${userId}).`);
           await interaction.reply({
-            content: `Current participation rate for epoch **${currentParticipationRateEpoch}** (${participationRateDuration} ago) is **${fixedParticipationRate}** on Mainnet for ${userMention}.`,
+            content: `Current participation rate for epoch **${currentParticipationRateEpoch}** (${participationRateDuration} ago) is **${fixedParticipationRate}** on Mainnet for ${userMen}.`,
             allowedMentions: { parse: ['users'], repliedUser: false }
           });
         } else {
           console.log(`We don't have the current participation rate for Mainnet. It should be available in a few minutes if you want to retry for @${userTag} (${userId}).`);
           await interaction.reply({
-            content: `We don't have the current participation rate for Mainnet. It should be available in a few minutes if you want to retry for ${userMention}.`,
+            content: `We don't have the current participation rate for Mainnet. It should be available in a few minutes if you want to retry for ${userMen}.`,
             allowedMentions: { parse: ['users'], repliedUser: false }
           });
         }
@@ -326,10 +326,10 @@ const main = function() {
           const restrictChannel = interaction.guild?.channels.cache.find((channel) => channel.name === channelName);
           if (restrictChannel !== undefined) {
             if (interaction.channelId !== restrictChannel.id) {
-              const channelMention = Formatters.channelMention(restrictChannel.id);
+              const channelMen = channelMention(restrictChannel.id);
               console.log(`This is the wrong channel for this bot command (${commandName}). You should try in #${restrictChannel.name} for @${userTag} (${userId}).`);
               await interaction.reply({
-                content: `This is the wrong channel for this bot command (${commandName}). You should try in ${channelMention} for ${userMention}.`,
+                content: `This is the wrong channel for this bot command (${commandName}). You should try in ${channelMen} for ${userMen}.`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
               });
               return;
@@ -343,7 +343,7 @@ const main = function() {
         if (existingRequest.get(userId) === true) {
           console.log(`You already have a pending request. Please wait until your request is completed for @${userTag} (${userId}).`);
           await interaction.reply({
-            content: `You already have a pending request. Please wait until your request is completed for ${userMention}.`,
+            content: `You already have a pending request. Please wait until your request is completed for ${userMen}.`,
             allowedMentions: { parse: ['users'], repliedUser: false }
           });
           return;
@@ -360,7 +360,7 @@ const main = function() {
           if (!hasRole) {
             console.log(`You cannot use this command without the ${restrictRole?.name} role for @${userTag} (${userId}).`);
             await interaction.followUp({
-              content: `You cannot use this command without the ${restrictRole?.name} role for ${userMention}.`,
+              content: `You cannot use this command without the ${restrictRole?.name} role for ${userMen}.`,
               allowedMentions: { parse: ['users'], repliedUser: false }
             });
             return;
@@ -386,7 +386,7 @@ const main = function() {
             if (DateTime.utc() < dtRequestAvailable) {
               console.log(`You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for @${userTag} (${userId}).`);
               await interaction.followUp({
-                content: `You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for ${userMention}.`,
+                content: `You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for ${userMen}.`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
               });
               return;
@@ -420,7 +420,7 @@ const main = function() {
             const formattedDuration = durRandom.toHuman();
             console.log(`You cannot do another request this soon my friend. You will need to wait at least ${formattedDuration} before you can request again for @${userTag} (${userId}).`);
               await interaction.followUp({
-                content: `You cannot do another request this soon my friend. You will need to wait at least ${formattedDuration} before you can request again for ${userMention}.`,
+                content: `You cannot do another request this soon my friend. You will need to wait at least ${formattedDuration} before you can request again for ${userMen}.`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
               });
             return;
@@ -434,7 +434,7 @@ const main = function() {
               if (resolvedAddress === null) {
                 console.log(`No address found for ENS ${targetAddress} for @${userTag} (${userId}).`);
                 await interaction.followUp({
-                  content: `No address found for ENS ${targetAddress} for ${userMention}.`,
+                  content: `No address found for ENS ${targetAddress} for ${userMen}.`,
                   allowedMentions: { parse: ['users'], repliedUser: false }
                 });
                 return;
@@ -444,7 +444,7 @@ const main = function() {
               console.log(`Error while trying to resolved ENS ${targetAddress} for @${userTag} (${userId}). ${error}`);
               console.log(error);
               await interaction.followUp({
-                content: `Error while trying to resolved ENS ${targetAddress} for ${userMention}. ${error}`,
+                content: `Error while trying to resolved ENS ${targetAddress} for ${userMen}. ${error}`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
               });
               return;
@@ -455,7 +455,7 @@ const main = function() {
             if (!utils.isAddress(targetAddress)) {
               console.log(`The wallet address provided (${targetAddress}) is not valid for @${userTag} (${userId})`);
               await interaction.followUp({
-                content: `The wallet address provided (${targetAddress}) is not valid for ${userMention}`,
+                content: `The wallet address provided (${targetAddress}) is not valid for ${userMen}`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
               });
               return
@@ -477,7 +477,7 @@ const main = function() {
               const enoughReason = config.enoughReason;
               console.log(`You already have ${utils.formatEther(targetBalance)} ${currency} in ${targetAddress}. ${enoughReason} for @${userTag} (${userId}).`);
               await interaction.followUp({
-                content: `You already have ${utils.formatEther(targetBalance)} ${currency} in ${targetAddress}. ${enoughReason} for ${userMention}.`,
+                content: `You already have ${utils.formatEther(targetBalance)} ${currency} in ${targetAddress}. ${enoughReason} for ${userMen}.`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
               });
               return;
@@ -486,7 +486,7 @@ const main = function() {
           } catch (error) {
             console.log(`Error while trying to get balance from ${targetAddress} for @${userTag} (${userId}). ${error}`);
             console.log(error);
-            await interaction.followUp(`Error while trying to get balance from ${targetAddress} for ${userMention}. ${error}`);
+            await interaction.followUp(`Error while trying to get balance from ${targetAddress} for ${userMen}. ${error}`);
             return;
           }
 
@@ -502,7 +502,7 @@ const main = function() {
             if (faucetBalance.lt(minNeeded)) {
               console.log(`The ${network} faucet is empty. Please contact an administrator to fill it up. From @${userTag} (${userId}).`);
               await interaction.followUp({
-                content: `The ${network} faucet is empty. Please contact an administrator to fill it up. From ${userMention}.`,
+                content: `The ${network} faucet is empty. Please contact an administrator to fill it up. From ${userMen}.`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
               });
               return;
@@ -510,7 +510,7 @@ const main = function() {
           } catch (error) {
             console.log(`Error while trying to get balance from the ${network} faucet for @${userTag} (${userId}). ${error}`);
             console.log(error);
-            await interaction.followUp(`Error while trying to get balance from the ${network} faucet for ${userMention}. ${error}`);
+            await interaction.followUp(`Error while trying to get balance from the ${network} faucet for ${userMen}. ${error}`);
             return;
           }
 
@@ -536,20 +536,20 @@ const main = function() {
             console.log(`There are ${remainingRequests} remaining requests with the current balance.`);
 
             await interaction.followUp({
-              content: `${utils.formatEther(sendingAmount)} ${currency} have been sent to ${targetAddress} for ${userMention}.${newRequestPart} Explore that transaction on ${explorerTxURL}\n\nThere are ${remainingRequests} remaining requests with the current balance.`,
+              content: `${utils.formatEther(sendingAmount)} ${currency} have been sent to ${targetAddress} for ${userMen}.${newRequestPart} Explore that transaction on ${explorerTxURL}\n\nThere are ${remainingRequests} remaining requests with the current balance.`,
               allowedMentions: { parse: ['users'], repliedUser: false },
               flags: MessageFlags.SuppressEmbeds });
 
           } catch (error) {
             console.log(`Error while trying to send ${utils.formatEther(sendingAmount)} ${currency} to ${targetAddress} for @${userTag} (${userId}). ${error}`);
             console.log(error);
-            await interaction.followUp(`Error while trying to send ${utils.formatEther(sendingAmount)} ${currency} to ${targetAddress} for ${userMention}. ${error}`);
+            await interaction.followUp(`Error while trying to send ${utils.formatEther(sendingAmount)} ${currency} to ${targetAddress} for ${userMen}. ${error}`);
           }
 
         } catch (error) {
           console.log(`Unexpected error while using the ${commandName} command for @${userTag} (${userId}). ${error}`);
           console.log(error);
-          await interaction.followUp(`Unexpected error while using the ${commandName} command for ${userMention}. ${error}`);
+          await interaction.followUp(`Unexpected error while using the ${commandName} command for ${userMen}. ${error}`);
         }
         finally {
           existingRequest.delete(userId);
@@ -571,7 +571,7 @@ const main = function() {
           const response = await axios.get(apiQueueUrl);
           if (response.status !== 200) {
             console.log(`Unexpected status code from querying beaconcha.in API for ${network} queue details. Status code ${response.status} for @${userTag} (${userId}).`);
-            await interaction.followUp(`Unexpected status code from querying beaconcha.in API for ${network} queue details. Status code ${response.status} for ${userMention}.`);
+            await interaction.followUp(`Unexpected status code from querying beaconcha.in API for ${network} queue details. Status code ${response.status} for ${userMen}.`);
             return;
           }
 
@@ -587,7 +587,7 @@ const main = function() {
 
           if (queryResponse.status !== "OK") {
             console.log(`Unexpected body status from querying beaconcha.in API for ${network} queue details. Body status ${queryResponse.status} for @${userTag} (${userId}).`);
-            await interaction.followUp(`Unexpected body status from querying beaconcha.in API for ${network} queue details. Body status ${queryResponse.status} for ${userMention}.`);
+            await interaction.followUp(`Unexpected body status from querying beaconcha.in API for ${network} queue details. Body status ${queryResponse.status} for ${userMen}.`);
             return;
           }
 
@@ -625,42 +625,42 @@ const main = function() {
           console.log(`Current queue details for ${network} for @${userTag} (${userId})\n\n- ${activationQueueMessage}\n- ${exitQueueMessage}`);
 
           await interaction.followUp({
-            content: `Current queue details for **${network}** for ${userMention}\n\n- ${activationQueueMessage}\n- ${exitQueueMessage}`,
+            content: `Current queue details for **${network}** for ${userMen}\n\n- ${activationQueueMessage}\n- ${exitQueueMessage}`,
             allowedMentions: { parse: ['users'], repliedUser: false },
             flags: MessageFlags.SuppressEmbeds });
           
         } catch (error) {
           console.log(`Error while trying to query beaconcha.in API for ${network} queue details for @${userTag} (${userId}). ${error}`);
           console.log(error);
-          await interaction.followUp(`Error while trying to query beaconcha.in API for ${network} queue details for ${userMention}. ${error}`);
+          await interaction.followUp(`Error while trying to query beaconcha.in API for ${network} queue details for ${userMen}. ${error}`);
         }
 
       } else if (commandName === 'goeth-msg') {
         console.log(`${commandName} from ${userTag} (${userId})`);
 
         const channelName = process.env.GOERLI_CHANNEL_NAME;
-        let channelMention = '';
+        let channelMen = '';
 
         if (channelName !== undefined && channelName !== '') {
           const requestChannel = interaction.guild?.channels.cache.find((channel) => channel.name === channelName);
           if (requestChannel !== undefined) {
-            channelMention = Formatters.channelMention(requestChannel.id);
+            channelMen = channelMention(requestChannel.id);
           }
         }
 
-        const brightIdMention = Formatters.channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
+        const brightIdMention = channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
 
         let targetUser = 'You';
 
         const inputUser = interaction.options.getUser('user', false);
         if (inputUser !== null) {
-          targetUser = Formatters.userMention(inputUser.id);
+          targetUser = userMention(inputUser.id);
         }
 
         const msg = (
-          `${targetUser} can request Goerli ETH to run a validator on Goerli on ${channelMention}` +
+          `${targetUser} can request Goerli ETH to run a validator on Goerli on ${channelMen}` +
           ` but first, you will need to be BrightID verified in ${brightIdMention}. Alternatively` +
-          ` you can use these online faucets https://faucetlink.to/goerli for ${userMention}`
+          ` you can use these online faucets https://faucetlink.to/goerli for ${userMen}`
           );
         
         interaction.reply({
@@ -672,28 +672,28 @@ const main = function() {
         console.log(`${commandName} from ${userTag} (${userId})`);
 
         const channelName = process.env.ROPSTEN_CHANNEL_NAME;
-        let channelMention = '';
+        let channelMen = '';
 
         if (channelName !== undefined && channelName !== '') {
           const requestChannel = interaction.guild?.channels.cache.find((channel) => channel.name === channelName);
           if (requestChannel !== undefined) {
-            channelMention = Formatters.channelMention(requestChannel.id);
+            channelMen = channelMention(requestChannel.id);
           }
         }
 
-        const brightIdMention = Formatters.channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
+        const brightIdMention = channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
 
         let targetUser = 'You';
 
         const inputUser = interaction.options.getUser('user', false);
         if (inputUser !== null) {
-          targetUser = Formatters.userMention(inputUser.id);
+          targetUser = userMention(inputUser.id);
         }
 
         const msg = (
-          `${targetUser} can request Ropsten ETH to run a validator on Ropsten on ${channelMention}` +
+          `${targetUser} can request Ropsten ETH to run a validator on Ropsten on ${channelMen}` +
           ` but first, you will need to be BrightID verified in ${brightIdMention}. Alternatively` +
-          ` you can use these online faucets https://faucetlink.to/ropsten for ${userMention}`
+          ` you can use these online faucets https://faucetlink.to/ropsten for ${userMen}`
           );
         
         interaction.reply({

@@ -1,7 +1,7 @@
 import { config } from 'dotenv';
 config();
 
-import { Client, GatewayIntentBits, Formatters, TextChannel } from 'discord.js';
+import { Client, GatewayIntentBits, TextChannel } from 'discord.js';
 import EventSource from 'eventsource';
 import axios from 'axios';
 
