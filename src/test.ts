@@ -1,14 +1,14 @@
 import { config } from 'dotenv';
 config();
 
-import { Client, Intents, Formatters, GuildMemberRoleManager, TextChannel } from 'discord.js';
+import { Client, GatewayIntentBits, Formatters, TextChannel } from 'discord.js';
 import EventSource from 'eventsource';
 import axios from 'axios';
 
 const main = function() {
   return new Promise<void>(async (mainResolve, mainReject) => {
 
-    const client = new Client({ intents: [Intents.FLAGS.GUILDS] });
+    const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
     client.on('ready', () => {
       console.log(`Logged in as ${client.user?.tag}!`);

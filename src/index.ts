@@ -1,7 +1,7 @@
 import { config } from 'dotenv';
 config();
 
-import { Client, Intents, Formatters, GuildMemberRoleManager, TextChannel } from 'discord.js';
+import { Client, GatewayIntentBits, Formatters, GuildMemberRoleManager, TextChannel } from 'discord.js';
 import { BigNumber, providers, utils, Wallet } from 'ethers';
 import { Database } from 'sqlite3';
 import { MessageFlags } from 'discord-api-types/v9';
@@ -266,7 +266,7 @@ const main = function() {
       });
     };
 
-    const client = new Client({ intents: [Intents.FLAGS.GUILDS] });
+    const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
     client.on('ready', () => {
       console.log(`Logged in as ${client.user?.tag}!`);
@@ -316,7 +316,7 @@ const main = function() {
         }
 
       } else if (faucetCommandsConfig.has(commandName)) {
-        let targetAddress = interaction.options.getString('address', true);
+        let targetAddress = interaction.options.get('address', true).value as string;
         console.log(`${commandName} from ${userTag} (${userId}) to ${targetAddress}!`);
 
         const config = faucetCommandsConfig.get(commandName) as networkConfig;
