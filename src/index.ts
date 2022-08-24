@@ -725,7 +725,7 @@ const main = function() {
       } else if (commandName === 'sepolia-eth-msg') {
         console.log(`${commandName} from ${userTag} (${userId})`);
 
-        const channelName = process.env.ROPSTEN_CHANNEL_NAME;
+        const channelName = process.env.SEPOLIA_CHANNEL_NAME;
         let channelMen = '';
 
         if (channelName !== undefined && channelName !== '') {
