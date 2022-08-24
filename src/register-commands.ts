@@ -54,6 +54,13 @@ const commands = [
       .setName('user')
       .setDescription('An optional user to ping with the message.')
       .setRequired(false)),
+  new SlashCommandBuilder()
+    .setName('sepolia-eth-msg')
+    .setDescription('Explain how to get Sepolia ETH to someone else.')
+    .addUserOption(option => option
+      .setName('user')
+      .setDescription('An optional user to ping with the message.')
+      .setRequired(false)),
 ]
 	.map(command => command.toJSON());
 

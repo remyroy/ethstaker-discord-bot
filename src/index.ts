@@ -722,6 +722,39 @@ const main = function() {
           flags: MessageFlags.SuppressEmbeds
         });
 
+      } else if (commandName === 'sepolia-eth-msg') {
+        console.log(`${commandName} from ${userTag} (${userId})`);
+
+        const channelName = process.env.ROPSTEN_CHANNEL_NAME;
+        let channelMen = '';
+
+        if (channelName !== undefined && channelName !== '') {
+          const requestChannel = interaction.guild?.channels.cache.find((channel) => channel.name === channelName);
+          if (requestChannel !== undefined) {
+            channelMen = channelMention(requestChannel.id);
+          }
+        }
+
+        const brightIdMention = channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
+
+        let targetUser = 'You';
+
+        const inputUser = interaction.options.getUser('user', false);
+        if (inputUser !== null) {
+          targetUser = userMention(inputUser.id);
+        }
+
+        const msg = (
+          `${targetUser} can request Sepolia ETH to test transactions on the Sepolia testnet on ${channelMen}` +
+          ` but first, you will need to be BrightID verified in ${brightIdMention}. Alternatively` +
+          ` you can use these online faucets https://faucetlink.to/sepolia for ${userMen}`
+          );
+        
+        interaction.reply({
+          content: msg,
+          flags: MessageFlags.SuppressEmbeds
+        });
+
       }
     });
 
