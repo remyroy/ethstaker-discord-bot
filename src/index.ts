@@ -61,6 +61,7 @@ const main = function() {
 
     const goerliProvider = new providers.InfuraProvider(providers.getNetwork('goerli'), process.env.INFURA_API_KEY);
     const ropstenProvider = new providers.InfuraProvider(providers.getNetwork('ropsten'), process.env.INFURA_API_KEY);
+    const sepoliaProvider = new providers.InfuraProvider(providers.getNetwork('sepolia'), process.env.INFURA_API_KEY);
 
     goerliProvider.getBlockNumber()
     .then((currentBlockNumber) => {
@@ -69,6 +70,10 @@ const main = function() {
     ropstenProvider.getBlockNumber()
     .then((currentBlockNumber) => {
       console.log(`Ropsten RPC provider is at block number ${currentBlockNumber}.`);
+    });
+    sepoliaProvider.getBlockNumber()
+    .then((currentBlockNumber) => {
+      console.log(`Sepolia RPC provider is at block number ${currentBlockNumber}.`);
     });
 
     // Configuring the faucet commands
@@ -104,6 +109,22 @@ const main = function() {
       requestAmount: validatorDepositCost.add(maxTransactionCost),
       wallet: new Wallet(process.env.FAUCET_PRIVATE_KEY as string, ropstenProvider),
       provider: ropstenProvider,
+    });
+
+    faucetCommandsConfig.set('request-sepolia-eth', {
+      network: 'Sepolia',
+      currency: 'Sepolia ETH',
+      command: 'request-sepolia-eth',
+      channel: process.env.SEPOLIA_CHANNEL_NAME,
+      enoughReason: 'It should be plenty already for a few transactions',
+      requestTable: 'request_sepolia',
+      rateLimitDuration: Duration.fromObject({ days: 7 }),
+      explorerTxRoot: 'https://sepolia.etherscan.io/tx/',
+      existingRequest: new Map<string, boolean>(),
+      minEthers: validatorDepositCost.add(maxTransactionCost.mul(2)),
+      requestAmount: validatorDepositCost.add(maxTransactionCost),
+      wallet: new Wallet(process.env.FAUCET_PRIVATE_KEY as string, sepoliaProvider),
+      provider: sepoliaProvider,
     });
 
     // Logging faucet wallet balance and remaining requests
