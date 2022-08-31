@@ -16,6 +16,8 @@ const quickNewRequest = Duration.fromObject({ days: 1 });
 const maxTransactionCost = utils.parseUnits("0.02", "ether");
 const validatorDepositCost = utils.parseUnits("32", "ether");
 
+const restrictedRoles = new Set<string>(process.env.ROLE_IDS?.split(','));
+
 const EPOCHS_PER_DAY = 225;
 const MIN_PER_EPOCH_CHURN_LIMIT = 4;
 const CHURN_LIMIT_QUOTIENT = 65536;
@@ -376,12 +378,13 @@ const main = function() {
 
           // Check for user role
           await interaction.reply({ content: 'Checking if you have the proper role...', ephemeral: true });
-          const restrictRole = interaction.guild?.roles.cache.find((role) => role.name === process.env.ROLE_NAME);
-          const hasRole = restrictRole === undefined || (interaction.member?.roles as GuildMemberRoleManager).cache.find((role) => role.id === restrictRole?.id) !== undefined;
+          const hasRole = restrictedRoles.size === 0 || (interaction.member?.roles as GuildMemberRoleManager).cache.find((role) => restrictedRoles.has(role.id)) !== undefined;
           if (!hasRole) {
-            console.log(`You cannot use this command without the ${restrictRole?.name} role for @${userTag} (${userId}).`);
+            const brightIdMention = channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
+
+            console.log(`You cannot use this command without the correct role for @${userTag} (${userId}).`);
             await interaction.followUp({
-              content: `You cannot use this command without the ${restrictRole?.name} role for ${userMen}.`,
+              content: `You cannot use this command without the correct role. Join ${brightIdMention} to get started for ${userMen}.`,
               allowedMentions: { parse: ['users'], repliedUser: false }
             });
             return;
