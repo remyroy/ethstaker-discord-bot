@@ -235,6 +235,9 @@ const main = function() {
       lastAddress: string;
     };
 
+    let participationRateAutoPost = false;
+    let participationRateAutoPostChannel: TextChannel | null = null;
+
     let currentParticipationRate: number | null = null;
     let previousParticipationRate: number | null = null;
     let currentParticipationRateEpoch: number | null = null;
@@ -312,33 +315,44 @@ const main = function() {
       if (commandName === 'ping') {
         console.log(`Ping from ${userTag} (${userId})!`);
         await interaction.reply('Pong!');
-      } else if (commandName === 'participation-mainnet') {
-        console.log(`${commandName} from ${userTag} (${userId})`);
+      } else if (commandName === 'participation-mainnet-auto') {
 
-        if (currentParticipationRate !== null && currentParticipationRateEpoch !== null && currentParticipationRateDate !== null && previousParticipationRate != null) {
-          const prevfixedParticipationRate = (previousParticipationRate * 100.0).toLocaleString('en-US', { maximumFractionDigits: 2 }) + '%';
-          const currentFixedParticipationRate = (currentParticipationRate * 100.0).toLocaleString('en-US', { maximumFractionDigits: 2 }) + '%';
-
-          const dtLastChecked = DateTime.fromMillis(currentParticipationRateDate as number);
-          let durLastChecked = DateTime.utc().diff(dtLastChecked).shiftTo('minutes', 'seconds').normalize();
-          if (durLastChecked.minutes === 0) {
-            durLastChecked = durLastChecked.shiftTo('seconds');
-          }
-
-          const participationRateDuration = durLastChecked.toHuman();
-
-          console.log(`Participation rate for epoch ${currentParticipationRateEpoch - 1} (${participationRateDuration} ago) is ${prevfixedParticipationRate} on Mainnet. Current participation rate for epoch ${currentParticipationRateEpoch} is ${currentFixedParticipationRate} (this is subject to change and probably incomplete as validators can continue to include attestations for the *current* epoch in the *next* epoch) on Mainnet for @${userTag} (${userId}).`);
+        // Check if it's my master
+        if (userId !== process.env.MASTER_USER_ID) {
           await interaction.reply({
-            content: `Participation rate for epoch **${currentParticipationRateEpoch - 1}** (${participationRateDuration} ago) is **${prevfixedParticipationRate}** on Mainnet. Current participation rate for epoch ${currentParticipationRateEpoch} is ${currentFixedParticipationRate} (this is subject to change and probably incomplete as validators can continue to include attestations for the *current* epoch in the *next* epoch) on Mainnet for ${userMen}.`,
+            content: `You cannot use this command (${commandName}). You are not my master for ${userMen}.`,
+            allowedMentions: { parse: ['users'], repliedUser: false }
+          });
+          return;
+        }
+
+        const enabled = interaction.options.get('enabled', true).value as boolean;
+
+        participationRateAutoPost = enabled;
+        if (participationRateAutoPost) {
+          participationRateAutoPostChannel = client.channels.cache.find((channel) => channel.id === interaction.channelId) as TextChannel;
+          const participationRateAutoPostChannelMention = channelMention(interaction.channelId);
+
+          await interaction.reply({
+            content: `Participation rate auto post on Mainnet enabled on ${participationRateAutoPostChannelMention} for ${userMen}.`,
             allowedMentions: { parse: ['users'], repliedUser: false }
           });
         } else {
-          console.log(`We don't have the current participation rate for Mainnet. It should be available in a few minutes if you want to retry for @${userTag} (${userId}).`);
           await interaction.reply({
-            content: `We don't have the current participation rate for Mainnet. It should be available in a few minutes if you want to retry for ${userMen}.`,
+            content: `Participation rate auto post on Mainnet disabled for ${userMen}.`,
             allowedMentions: { parse: ['users'], repliedUser: false }
           });
         }
+        return;
+
+      } else if (commandName === 'participation-mainnet') {
+        console.log(`${commandName} from ${userTag} (${userId})`);
+
+        const message = participationRateMessage(userTag, userId, userMen);
+        await interaction.reply({
+          content: message,
+          allowedMentions: { parse: ['users'], repliedUser: false }
+        });
 
       } else if (faucetCommandsConfig.has(commandName)) {
         let targetAddress = interaction.options.get('address', true).value as string;
@@ -793,6 +807,40 @@ const main = function() {
       });
     };
 
+    const participationRateMessage = function(userTag: string, userId: string, userMen: string) {
+      if (currentParticipationRate !== null && currentParticipationRateEpoch !== null && currentParticipationRateDate !== null && previousParticipationRate != null) {
+        const prevfixedParticipationRate = (previousParticipationRate * 100.0).toLocaleString('en-US', { maximumFractionDigits: 2 }) + '%';
+        const currentFixedParticipationRate = (currentParticipationRate * 100.0).toLocaleString('en-US', { maximumFractionDigits: 2 }) + '%';
+
+        const dtLastChecked = DateTime.fromMillis(currentParticipationRateDate as number);
+        let durLastChecked = DateTime.utc().diff(dtLastChecked).shiftTo('minutes', 'seconds').normalize();
+        if (durLastChecked.minutes === 0) {
+          durLastChecked = durLastChecked.shiftTo('seconds');
+        }
+
+        const participationRateDuration = durLastChecked.toHuman();
+
+        console.log(`Participation rate for epoch ${currentParticipationRateEpoch - 1} (${participationRateDuration} ago) is ${prevfixedParticipationRate} on Mainnet. Current participation rate for epoch ${currentParticipationRateEpoch} is ${currentFixedParticipationRate} (this is subject to change and probably incomplete as validators can continue to include attestations for the *current* epoch in the *next* epoch) on Mainnet for @${userTag} (${userId}).`);
+        return `Participation rate for epoch **${currentParticipationRateEpoch - 1}** (${participationRateDuration} ago) is **${prevfixedParticipationRate}** on Mainnet. Current participation rate for epoch ${currentParticipationRateEpoch} is ${currentFixedParticipationRate} (this is subject to change and probably incomplete as validators can continue to include attestations for the *current* epoch in the *next* epoch) on Mainnet for ${userMen}.`;
+      } else {
+        console.log(`We don't have the current participation rate for Mainnet. It should be available in a few minutes if you want to retry for @${userTag} (${userId}).`);
+        return `We don't have the current participation rate for Mainnet. It should be available in a few minutes if you want to retry for ${userMen}.`;
+      }
+    }
+
+    const autoPostParticipationRate = function() {
+      return new Promise<void>(async (resolve, reject) => {
+        if (participationRateAutoPost && participationRateAutoPostChannel !== null) {
+          const message = participationRateMessage('', process.env.MASTER_USER_ID as string, userMention(process.env.MASTER_USER_ID as string));
+          await participationRateAutoPostChannel.send({
+            content: message,
+            allowedMentions: { parse: ['users'], repliedUser: false }
+          });
+        }
+        resolve();
+      });
+    };
+
     let participationRateAlertTriggering = {
       below90: false,
       below80: false,
@@ -942,6 +990,8 @@ const main = function() {
           currentParticipationRate = currParticipationRate;
           currentParticipationRateEpoch = epoch;
           currentParticipationRateDate = participationRateDate;
+
+          await autoPostParticipationRate();
 
         } catch (error) {
           console.log(`Error while trying to query Validator Inclusion API for epoch ${epoch} details. ${error}`);

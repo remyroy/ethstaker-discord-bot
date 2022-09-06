@@ -39,7 +39,14 @@ const commands = [
   new SlashCommandBuilder().setName('queue-ropsten')
     .setDescription('Get validators activation and exit queue details from Ropsten testnet.'),
   new SlashCommandBuilder().setName('participation-mainnet')
-    .setDescription('Get the current participation rate and the justification/finalization rate on Mainnet.'),
+    .setDescription('Get the current participation rate on Mainnet.'),
+  new SlashCommandBuilder()
+    .setName('participation-mainnet-auto')
+    .setDescription('Auto post the current participation rate on Mainnet. Only for my master.')
+    .addBooleanOption(option => option
+      .setName('enabled')
+      .setDescription('Enable or disable auto posting the participation rate.')
+      .setRequired(true)),
   new SlashCommandBuilder()
     .setName('goeth-msg')
     .setDescription('Explain how to get Goerli ETH to someone else.')
