@@ -2,6 +2,8 @@ import { config } from 'dotenv';
 config();
 
 import { Client, GatewayIntentBits, TextChannel } from 'discord.js';
+import { DateTime, Duration } from 'luxon';
+
 import EventSource from 'eventsource';
 import axios from 'axios';
 
@@ -25,11 +27,11 @@ const main = function() {
     const alertOnDiscord = function(message: string) {
       return new Promise<void>(async (resolve, reject) => {
 
-        if (alertChannel === null) {
+        /*if (alertChannel === null) {
           alertChannel = client.channels.cache.find((channel) => channel.id === process.env.ALERT_CHANNEL_ID) as TextChannel;
         }
 
-        await alertChannel.send(message);
+        await alertChannel.send(message);*/
         resolve();
       });
     };
@@ -42,11 +44,10 @@ const main = function() {
     };
 
     let currentParticipationRate: number | null = null;
+    let previousParticipationRate: number | null = null;
     let currentParticipationRateEpoch: number | null = null;
+    let currentParticipationRateDate: number | null = null;
     const twoThird = 2 / 3;
-
-    let rateTestIndex = 0;
-    const rateTests = [0.8491, 0.8501, 0.7729, 0.7683, 0.8357, 0.3412, 0.6841, 0.7158, 0.9518, 0.9638];
 
     const checkParticipationRate = function (epoch: number) {
       return new Promise<void>(async (resolve, reject) => {
@@ -74,11 +75,18 @@ const main = function() {
           };
 
           const queryResponse = response.data as globalResponse;
+          const participationRateDate = DateTime.utc().toMillis();
 
-          const participationRate = queryResponse.data.previous_epoch_target_attesting_gwei / queryResponse.data.previous_epoch_active_gwei;
-          const fixedParticipationRate = (participationRate * 100.0).toLocaleString('en-US', { maximumFractionDigits: 2 }) + '%';
+          const prevParticipationRate = queryResponse.data.previous_epoch_target_attesting_gwei / queryResponse.data.previous_epoch_active_gwei;
+          const currParticipationRate = queryResponse.data.current_epoch_target_attesting_gwei / queryResponse.data.current_epoch_active_gwei;
 
-          console.log(`Participation rate for epoch ${epoch} is ${fixedParticipationRate}.`);
+          const fixedPrevParticipationRate = (prevParticipationRate * 100.0).toLocaleString('en-US', { maximumFractionDigits: 2 }) + '%';
+          const fixedCurrParticipationRate = (currParticipationRate * 100.0).toLocaleString('en-US', { maximumFractionDigits: 2 }) + '%';
+
+          const participationRate = prevParticipationRate;
+          const fixedParticipationRate = fixedPrevParticipationRate;
+
+          console.log(`Participation rate for epoch ${epoch -1} is ${fixedPrevParticipationRate}. Temporary participation rate for ${epoch} is ${fixedCurrParticipationRate}.`);
 
           if (participationRate < twoThird) {
             participationRateAlertTriggering.below90 = true;
@@ -171,8 +179,10 @@ const main = function() {
             participationRateAlertTriggering.belowTwoThird = false;
           }
 
-          currentParticipationRate = participationRate;
+          previousParticipationRate = prevParticipationRate;
+          currentParticipationRate = currParticipationRate;
           currentParticipationRateEpoch = epoch;
+          currentParticipationRateDate = participationRateDate;
 
         } catch (error) {
           console.log(`Error while trying to query Validator Inclusion API for epoch ${epoch} details. ${error}`);

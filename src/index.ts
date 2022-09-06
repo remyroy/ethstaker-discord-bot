@@ -236,6 +236,7 @@ const main = function() {
     };
 
     let currentParticipationRate: number | null = null;
+    let previousParticipationRate: number | null = null;
     let currentParticipationRateEpoch: number | null = null;
     let currentParticipationRateDate: number | null = null;
     const twoThird = 2 / 3;
@@ -314,8 +315,9 @@ const main = function() {
       } else if (commandName === 'participation-mainnet') {
         console.log(`${commandName} from ${userTag} (${userId})`);
 
-        if (currentParticipationRate !== null && currentParticipationRateEpoch !== null && currentParticipationRateDate !== null) {
-          const fixedParticipationRate = (currentParticipationRate * 100.0).toLocaleString('en-US', { maximumFractionDigits: 2 }) + '%';
+        if (currentParticipationRate !== null && currentParticipationRateEpoch !== null && currentParticipationRateDate !== null && previousParticipationRate != null) {
+          const prevfixedParticipationRate = (previousParticipationRate * 100.0).toLocaleString('en-US', { maximumFractionDigits: 2 }) + '%';
+          const currentFixedParticipationRate = (currentParticipationRate * 100.0).toLocaleString('en-US', { maximumFractionDigits: 2 }) + '%';
 
           const dtLastChecked = DateTime.fromMillis(currentParticipationRateDate as number);
           let durLastChecked = DateTime.utc().diff(dtLastChecked).shiftTo('minutes', 'seconds').normalize();
@@ -325,9 +327,9 @@ const main = function() {
 
           const participationRateDuration = durLastChecked.toHuman();
 
-          console.log(`Current participation rate for epoch ${currentParticipationRateEpoch} (${participationRateDuration} ago) is ${fixedParticipationRate} on Mainnet for @${userTag} (${userId}).`);
+          console.log(`Participation rate for epoch ${currentParticipationRateEpoch - 1} (${participationRateDuration} ago) is ${prevfixedParticipationRate} on Mainnet. Current participation rate for epoch ${currentParticipationRateEpoch} is ${currentFixedParticipationRate} (this is subject to change and probably incomplete as validators can continue to include attestations for the *current* epoch in the *next* epoch) on Mainnet for @${userTag} (${userId}).`);
           await interaction.reply({
-            content: `Current participation rate for epoch **${currentParticipationRateEpoch}** (${participationRateDuration} ago) is **${fixedParticipationRate}** on Mainnet for ${userMen}.`,
+            content: `Participation rate for epoch **${currentParticipationRateEpoch - 1}** (${participationRateDuration} ago) is **${prevfixedParticipationRate}** on Mainnet. Current participation rate for epoch ${currentParticipationRateEpoch} is ${currentFixedParticipationRate} (this is subject to change and probably incomplete as validators can continue to include attestations for the *current* epoch in the *next* epoch) on Mainnet for ${userMen}.`,
             allowedMentions: { parse: ['users'], repliedUser: false }
           });
         } else {
@@ -824,12 +826,18 @@ const main = function() {
           };
 
           const queryResponse = response.data as globalResponse;
-
-          const participationRate = queryResponse.data.previous_epoch_target_attesting_gwei / queryResponse.data.previous_epoch_active_gwei;
-          const fixedParticipationRate = (participationRate * 100.0).toLocaleString('en-US', { maximumFractionDigits: 2 }) + '%';
           const participationRateDate = DateTime.utc().toMillis();
 
-          console.log(`Participation rate for epoch ${epoch} is ${fixedParticipationRate}.`);
+          const prevParticipationRate = queryResponse.data.previous_epoch_target_attesting_gwei / queryResponse.data.previous_epoch_active_gwei;
+          const currParticipationRate = queryResponse.data.current_epoch_target_attesting_gwei / queryResponse.data.current_epoch_active_gwei;
+
+          const fixedPrevParticipationRate = (prevParticipationRate * 100.0).toLocaleString('en-US', { maximumFractionDigits: 2 }) + '%';
+          const fixedCurrParticipationRate = (currParticipationRate * 100.0).toLocaleString('en-US', { maximumFractionDigits: 2 }) + '%';
+
+          const participationRate = prevParticipationRate;
+          const fixedParticipationRate = fixedPrevParticipationRate;
+
+          console.log(`Participation rate for epoch ${epoch -1} is ${fixedPrevParticipationRate}. Temporary participation rate for ${epoch} is ${fixedCurrParticipationRate}.`);
 
           if (participationRate < twoThird) {
             participationRateAlertTriggering.below90 = true;
@@ -930,7 +938,8 @@ const main = function() {
             participationRateAlertTriggering.belowTwoThird = false;
           }
 
-          currentParticipationRate = participationRate;
+          previousParticipationRate = prevParticipationRate;
+          currentParticipationRate = currParticipationRate;
           currentParticipationRateEpoch = epoch;
           currentParticipationRateDate = participationRateDate;
 
