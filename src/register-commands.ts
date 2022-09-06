@@ -39,7 +39,7 @@ const commands = [
   new SlashCommandBuilder().setName('queue-ropsten')
     .setDescription('Get validators activation and exit queue details from Ropsten testnet.'),
   new SlashCommandBuilder().setName('participation-mainnet')
-    .setDescription('Get the current participation rate on Mainnet.'),
+    .setDescription('Get the current participation rate and the justification/finalization rate on Mainnet.'),
   new SlashCommandBuilder()
     .setName('goeth-msg')
     .setDescription('Explain how to get Goerli ETH to someone else.')
