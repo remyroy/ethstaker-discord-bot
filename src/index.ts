@@ -334,12 +334,12 @@ const main = function() {
           const participationRateAutoPostChannelMention = channelMention(interaction.channelId);
 
           await interaction.reply({
-            content: `Participation rate auto post on Mainnet enabled on ${participationRateAutoPostChannelMention} for ${userMen}.`,
+            content: `Participation rate auto post for Mainnet enabled on ${participationRateAutoPostChannelMention} for ${userMen}.`,
             allowedMentions: { parse: ['users'], repliedUser: false }
           });
         } else {
           await interaction.reply({
-            content: `Participation rate auto post on Mainnet disabled for ${userMen}.`,
+            content: `Participation rate auto post for Mainnet disabled for ${userMen}.`,
             allowedMentions: { parse: ['users'], repliedUser: false }
           });
         }
