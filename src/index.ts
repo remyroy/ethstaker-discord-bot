@@ -1083,19 +1083,29 @@ const main = function() {
           console.log('Attestation slashings');
           foundSlashings = true;
 
+          let attSlashingCount = 0;
           attSlashings.forEach((attSlashing) => {
             const indices1 = new Set<number>(attSlashing.attestation_1.attesting_indices);
             const indices2 = new Set<number>(attSlashing.attestation_2.attesting_indices);
             const intersection = new Set<number>([...indices1].filter(x => indices2.has(x)));
 
             intersection.forEach((validatorIndex) => {
-              console.log(`Attestation slashing for validator ${validatorIndex} at slot ${slot}`);
-              const exploreChainUrl = `${validatorRoot}${validatorIndex}`;
-              attestationSlashingsMessage = attestationSlashingsMessage + `\n- Validator **${validatorIndex}** was part of an *attestation slashing*. Explore this validator on <${exploreChainUrl}>`;
+              if (attSlashingCount == 5) {
+                attestationSlashingsMessage = attestationSlashingsMessage + `\n[...]`
+              }
+              if (attSlashingCount >= 5) {
+                return;
+              } else {
+                console.log(`Attestation slashing for validator ${validatorIndex} at slot ${slot}`);
+                const exploreChainUrl = `${validatorRoot}${validatorIndex}`;
+                attestationSlashingsMessage = attestationSlashingsMessage + `\n- Validator **${validatorIndex}** was part of an *attestation slashing*. Explore this validator on <${exploreChainUrl}>`;
+              }
+              attSlashingCount = attSlashingCount + 1;
             });
           });
         }
 
+        let propSlashingCount = 0;
         if (propSlashings.length > 0) {
           // We have proposer slashings
           console.log('Proposer slashings');
@@ -1106,9 +1116,17 @@ const main = function() {
             const index2 = propSlashings.signed_header_2.message.proposer_index;
             const validatorIndex = index1;
             if (index1 === index2) {
-              console.log(`Proposer slashing for validator ${validatorIndex} at slot ${slot}`);
-              const exploreChainUrl = `${validatorRoot}${validatorIndex}`;
-              proposerSlashingMessage = proposerSlashingMessage + `\n- Validator **${validatorIndex}** was part of a *proposer slashing*. Explore this validator on <${exploreChainUrl}>`;
+              if (propSlashingCount == 5) {
+                proposerSlashingMessage = proposerSlashingMessage + `\n[...]`
+              }
+              if (propSlashingCount >= 5) {
+                return;
+              } else {
+                console.log(`Proposer slashing for validator ${validatorIndex} at slot ${slot}`);
+                const exploreChainUrl = `${validatorRoot}${validatorIndex}`;
+                proposerSlashingMessage = proposerSlashingMessage + `\n- Validator **${validatorIndex}** was part of a *proposer slashing*. Explore this validator on <${exploreChainUrl}>`;
+              }
+              propSlashingCount = propSlashingCount + 1;
             }
           });
         }
