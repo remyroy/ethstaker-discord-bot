@@ -471,6 +471,45 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@gitcoinco/passport-sdk-reader@npm:^0.1.4":
+  version: 0.1.4
+  resolution: "@gitcoinco/passport-sdk-reader@npm:0.1.4"
+  dependencies:
+    "@gitcoinco/passport-sdk-types": ^0.2.0
+    tulons: ^0.0.7
+  checksum: a7fe75c9e3040d1934d6c9fae984bff341681c313132e959bd221ff8b23948910cd051d8cded388e8daa0742f7429426c5c9594eb0e24eac317cd15feb65ee06
+  languageName: node
+  linkType: hard
+
+"@gitcoinco/passport-sdk-scorer@npm:^0.1.4":
+  version: 0.1.4
+  resolution: "@gitcoinco/passport-sdk-scorer@npm:0.1.4"
+  dependencies:
+    "@gitcoinco/passport-sdk-reader": ^0.1.4
+    "@gitcoinco/passport-sdk-types": ^0.2.0
+    "@gitcoinco/passport-sdk-verifier": ^0.2.1
+  checksum: 08ad197712e6fc61cbaf6bb635061700991726d994f4ba6e8d94218cd2b10d05f64fb9a14cc97b82c35c2298416994a3b950de4e27da495a78789f84dac3bde2
+  languageName: node
+  linkType: hard
+
+"@gitcoinco/passport-sdk-types@npm:^0.2.0":
+  version: 0.2.0
+  resolution: "@gitcoinco/passport-sdk-types@npm:0.2.0"
+  checksum: 04b0b91e1477e542a8f84614f350fe47673a17307991cccdf7fc4e9d9bb55ef4b7247c0afa945547e5ecc25a31d37459d0f8c790d4843972979bb3afc88b2467
+  languageName: node
+  linkType: hard
+
+"@gitcoinco/passport-sdk-verifier@npm:^0.2.1":
+  version: 0.2.1
+  resolution: "@gitcoinco/passport-sdk-verifier@npm:0.2.1"
+  dependencies:
+    "@gitcoinco/passport-sdk-reader": ^0.1.4
+    "@gitcoinco/passport-sdk-types": ^0.2.0
+    "@spruceid/didkit-wasm": ^0.2.1
+  checksum: df97f50af352b17967a918213fda0932fb99c45d617c128d62bdd7cb17a35adb29bafad588362ba7ade89be5f26aa57e4dbde2163dd1cdf2df47f5dbd298f139
+  languageName: node
+  linkType: hard
+
 "@mapbox/node-pre-gyp@npm:^1.0.0":
   version: 1.0.9
   resolution: "@mapbox/node-pre-gyp@npm:1.0.9"
@@ -551,6 +590,13 @@ __metadata:
   version: 3.2.2
   resolution: "@sapphire/snowflake@npm:3.2.2"
   checksum: 315fecef4738092c2a2f3509b132b811fcbfa6c98d5d45d951adaf3ca21608be69043bcc137cc6933a7c3e55cbdc066daa5bb484603e6575422b335445b59315
+  languageName: node
+  linkType: hard
+
+"@spruceid/didkit-wasm@npm:^0.2.1":
+  version: 0.2.1
+  resolution: "@spruceid/didkit-wasm@npm:0.2.1"
+  checksum: 53d5fb9ab019ebf6f08461e3d97dcb15347474e9fd47f8c4bfd69c88136414cc1ffd4181ab6ffa297c317d490e3f5840ca633e4c0a3e1e8ca04a6a16411d531f
   languageName: node
   linkType: hard
 
@@ -1714,6 +1760,8 @@ __metadata:
   dependencies:
     "@discordjs/builders": ^1.2.0
     "@discordjs/rest": ^1.1.0
+    "@gitcoinco/passport-sdk-scorer": ^0.1.4
+    "@gitcoinco/passport-sdk-verifier": ^0.2.1
     "@tsconfig/node16": ^1.0.3
     "@types/eventsource": ^1.1.9
     "@types/luxon": ^3.0.1
@@ -4558,6 +4606,15 @@ __metadata:
   version: 2.4.0
   resolution: "tslib@npm:2.4.0"
   checksum: 8c4aa6a3c5a754bf76aefc38026134180c053b7bd2f81338cb5e5ebf96fefa0f417bff221592bf801077f5bf990562f6264fecbc42cd3309b33872cb6fc3b113
+  languageName: node
+  linkType: hard
+
+"tulons@npm:^0.0.7":
+  version: 0.0.7
+  resolution: "tulons@npm:0.0.7"
+  dependencies:
+    axios: ^0.27.2
+  checksum: f5d11dab2e349fdb9940f5988c743a2e4bd7d6f45218d412febfec3b8f9c19202ae9c29c6154b26c8afc74c2ae349f0adc8fc961ab5d534e271006d2d1f6e418
   languageName: node
   linkType: hard
 
