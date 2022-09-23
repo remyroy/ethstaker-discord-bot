@@ -239,7 +239,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ethersproject/networks@npm:5.7.0, @ethersproject/networks@npm:^5.7.0":
+"@ethersproject/networks@npm:5.7.1":
+  version: 5.7.1
+  resolution: "@ethersproject/networks@npm:5.7.1"
+  dependencies:
+    "@ethersproject/logger": ^5.7.0
+  checksum: 0339f312304c17d9a0adce550edb825d4d2c8c9468c1634c44172c67a9ed256f594da62c4cda5c3837a0f28b7fabc03aca9b492f68ff1fdad337ee861b27bd5d
+  languageName: node
+  linkType: hard
+
+"@ethersproject/networks@npm:^5.7.0":
   version: 5.7.0
   resolution: "@ethersproject/networks@npm:5.7.0"
   dependencies:
@@ -267,9 +276,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ethersproject/providers@npm:5.7.0":
-  version: 5.7.0
-  resolution: "@ethersproject/providers@npm:5.7.0"
+"@ethersproject/providers@npm:5.7.1":
+  version: 5.7.1
+  resolution: "@ethersproject/providers@npm:5.7.1"
   dependencies:
     "@ethersproject/abstract-provider": ^5.7.0
     "@ethersproject/abstract-signer": ^5.7.0
@@ -291,7 +300,7 @@ __metadata:
     "@ethersproject/web": ^5.7.0
     bech32: 1.1.4
     ws: 7.4.6
-  checksum: a6f80cea838424ceb367ff8e0f004f9fd6b43a87505da9d6aef33eb2bbc77cdb03ab51709ae83b7aa07d038fadf00634e08d8683fe6ae8b17b9351e3b30b26cb
+  checksum: 673745e967e7215b46b7d3024f5ee02be975d6cf66b605f87a0e5beaa349d6d30c987165f98eceddaf7996f64a1ec414f0715f25fc3458aead6eea4c4820c399
   languageName: node
   linkType: hard
 
@@ -416,7 +425,20 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ethersproject/web@npm:5.7.0, @ethersproject/web@npm:^5.7.0":
+"@ethersproject/web@npm:5.7.1":
+  version: 5.7.1
+  resolution: "@ethersproject/web@npm:5.7.1"
+  dependencies:
+    "@ethersproject/base64": ^5.7.0
+    "@ethersproject/bytes": ^5.7.0
+    "@ethersproject/logger": ^5.7.0
+    "@ethersproject/properties": ^5.7.0
+    "@ethersproject/strings": ^5.7.0
+  checksum: 7028c47103f82fd2e2c197ce0eecfacaa9180ffeec7de7845b1f4f9b19d84081b7a48227aaddde05a4aaa526af574a9a0ce01cc0fc75e3e371f84b38b5b16b2b
+  languageName: node
+  linkType: hard
+
+"@ethersproject/web@npm:^5.7.0":
   version: 5.7.0
   resolution: "@ethersproject/web@npm:5.7.0"
   dependencies:
@@ -1468,29 +1490,36 @@ __metadata:
   languageName: node
   linkType: hard
 
-"discord-api-types@npm:^0.37.3, discord-api-types@npm:^0.37.4":
+"discord-api-types@npm:^0.37.10":
+  version: 0.37.10
+  resolution: "discord-api-types@npm:0.37.10"
+  checksum: a09460953a02adf3c40a486e3946c6ca0dd6c76d279444a4595abecfe8b5b88ad49d48b5eeb85e2cb95256a0824ee075cb7550d371c13e64e37ec703206c092b
+  languageName: node
+  linkType: hard
+
+"discord-api-types@npm:^0.37.3":
   version: 0.37.4
   resolution: "discord-api-types@npm:0.37.4"
   checksum: 18b74acfcd5f6c554668eb5cb31a5db9076dfb5cb6b5c538a342ab9d22816644bada22a66285468fe7dd9980287921d5d50ba3b11cc8e391fe4f09e761bcd179
   languageName: node
   linkType: hard
 
-"discord.js@npm:^14.3.0":
-  version: 14.3.0
-  resolution: "discord.js@npm:14.3.0"
+"discord.js@npm:^14.4.0":
+  version: 14.4.0
+  resolution: "discord.js@npm:14.4.0"
   dependencies:
     "@discordjs/builders": ^1.2.0
     "@discordjs/collection": ^1.1.0
     "@discordjs/rest": ^1.1.0
     "@sapphire/snowflake": ^3.2.2
     "@types/ws": ^8.5.3
-    discord-api-types: ^0.37.3
+    discord-api-types: ^0.37.10
     fast-deep-equal: ^3.1.3
     lodash.snakecase: ^4.1.1
     tslib: ^2.4.0
-    undici: ^5.9.1
+    undici: ^5.10.0
     ws: ^8.8.1
-  checksum: e45117549d8d504eae958cb104a42dd3903f67ae0c3062fdc60c748a2a21da14a32ec3c9643edcebe568d82602f0b2efc3b9af59d1482ac1304ce4aaeda944a2
+  checksum: 0005332da88c130fb5fb144817cfb10323b0c57d0c7c20ec456a4b217b7127844dcd71107c58ef10d83f46af7edb2ba41610c107736a1a08cffc9683d548764b
   languageName: node
   linkType: hard
 
@@ -1641,9 +1670,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ethers@npm:^5.7.0":
-  version: 5.7.0
-  resolution: "ethers@npm:5.7.0"
+"ethers@npm:^5.7.1":
+  version: 5.7.1
+  resolution: "ethers@npm:5.7.1"
   dependencies:
     "@ethersproject/abi": 5.7.0
     "@ethersproject/abstract-provider": 5.7.0
@@ -1660,10 +1689,10 @@ __metadata:
     "@ethersproject/json-wallets": 5.7.0
     "@ethersproject/keccak256": 5.7.0
     "@ethersproject/logger": 5.7.0
-    "@ethersproject/networks": 5.7.0
+    "@ethersproject/networks": 5.7.1
     "@ethersproject/pbkdf2": 5.7.0
     "@ethersproject/properties": 5.7.0
-    "@ethersproject/providers": 5.7.0
+    "@ethersproject/providers": 5.7.1
     "@ethersproject/random": 5.7.0
     "@ethersproject/rlp": 5.7.0
     "@ethersproject/sha2": 5.7.0
@@ -1673,9 +1702,9 @@ __metadata:
     "@ethersproject/transactions": 5.7.0
     "@ethersproject/units": 5.7.0
     "@ethersproject/wallet": 5.7.0
-    "@ethersproject/web": 5.7.0
+    "@ethersproject/web": 5.7.1
     "@ethersproject/wordlists": 5.7.0
-  checksum: 03b16c194e035a25c0c522b81f5bb9d2157f9389db3227066ff3bbf0bd348218a25b576a5293078b61885bd2be6871e1da8232cf5351ce72de1189c89e4d05c7
+  checksum: 7a61b7a105c41f9fec327887414f1950dc27bfa2d12fe29a068419eaaa3d415e6a12275685c87f700abd88c3b639ae79c09a2f90edea1e69edc8126cb0dce708
   languageName: node
   linkType: hard
 
@@ -1692,17 +1721,17 @@ __metadata:
     "@types/sqlite3": ^3.1.8
     axios: ^0.27.2
     bufferutil: ^4.0.6
-    discord-api-types: ^0.37.4
-    discord.js: ^14.3.0
+    discord-api-types: ^0.37.10
+    discord.js: ^14.4.0
     dotenv: ^16.0.1
     erlpack: ^0.1.4
-    ethers: ^5.7.0
+    ethers: ^5.7.1
     eventsource: ^2.0.2
     gulp: ^4.0.2
     gulp-typescript: ^6.0.0-alpha.1
-    luxon: ^2.4.0
+    luxon: ^3.0.3
     seedrandom: ^3.0.5
-    sqlite3: ^5.0.11
+    sqlite3: ^5.1.1
     typescript: ^4.7.2
     utf-8-validate: ^5.0.9
     zlib-sync: ^0.1.7
@@ -2905,10 +2934,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"luxon@npm:^2.4.0":
-  version: 2.4.0
-  resolution: "luxon@npm:2.4.0"
-  checksum: 6071028d65cc3d3bdab5e6a3995dd97411c92bb3b3163a02deb7b7014318ad3a6fd750ae77131c42141b717c14aef8880d3130f265281d500ef2365f7265b3f3
+"luxon@npm:^3.0.3":
+  version: 3.0.3
+  resolution: "luxon@npm:3.0.3"
+  checksum: 67d143f102f520761c4202086579a5cf30b230ea299da27cacb31e9f9d372cadef90f14cbe7e2621b70825b267fe00128b8176ed8b7172b48f77a403a662d5aa
   languageName: node
   linkType: hard
 
@@ -4237,9 +4266,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"sqlite3@npm:^5.0.11":
-  version: 5.0.11
-  resolution: "sqlite3@npm:5.0.11"
+"sqlite3@npm:^5.1.1":
+  version: 5.1.1
+  resolution: "sqlite3@npm:5.1.1"
   dependencies:
     "@mapbox/node-pre-gyp": ^1.0.0
     node-addon-api: ^4.2.0
@@ -4253,7 +4282,7 @@ __metadata:
   peerDependenciesMeta:
     node-gyp:
       optional: true
-  checksum: 9847d56af4aea1872678e66f35c4f5fed599c6aee0441eda8d1f56a5263fc8ab38e0fc9e46cbf02e7043272e39e665ec7b880886d36c16e865a8e375a6f045fc
+  checksum: aaedb724b3b3df8c5a5f2df0b1691b8d0c19a93407c792796ef736f173198c28fdd31ddb414e7bd52d82717233abb183fc161ab515b081d6f640c92ce84d3b7a
   languageName: node
   linkType: hard
 
@@ -4605,7 +4634,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"undici@npm:^5.9.1":
+"undici@npm:^5.10.0, undici@npm:^5.9.1":
   version: 5.10.0
   resolution: "undici@npm:5.10.0"
   checksum: 7ba2b71dccc74cd2bdf645b83e9aaef374ae04855943d0a2f42a3d0b9e5556f37cc9b5156fb5288277a2fa95fd46a56f3ae0d5cf73db3f008d75ec41104b136c
