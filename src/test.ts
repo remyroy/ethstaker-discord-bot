@@ -177,6 +177,20 @@ const main = function() {
     const initDb = function(db: Database, faucetCommandsConfig: Map<string, networkConfig>) {
       return new Promise<void>(async (resolve, reject) => {
         db.serialize(() => {
+          db.run(`CREATE TABLE IF NOT EXISTS passport (walletAddress TEXT PRIMARY KEY UNIQUE NOT NULL, userId TEXT NOT NULL);`, (error: Error | null) => {
+            if (error !== null) {
+              reject(error);
+              return;
+            }
+          });
+
+          db.run(`CREATE UNIQUE INDEX IF NOT EXISTS passport_walletAddress on passport ( walletAddress );`, (error: Error | null) => {
+            if (error !== null) {
+              reject(error);
+              return;
+            }
+          });
+
           let index = 0;
           faucetCommandsConfig.forEach((config, key, map) => {
             const tableName = config.requestTable;
@@ -184,11 +198,13 @@ const main = function() {
             db.run(`CREATE TABLE IF NOT EXISTS ${tableName} (userId TEXT PRIMARY KEY UNIQUE NOT NULL, lastRequested INTEGER NOT NULL, lastAddress TEXT NOT NULL);`, (error: Error | null) => {
               if (error !== null) {
                 reject(error);
+                return;
               }
             });
             db.run(`CREATE UNIQUE INDEX IF NOT EXISTS ${tableName}_userID on ${tableName} ( userID );`, (error: Error | null) => {
               if (error !== null) {
                 reject(error);
+                return;
               }
             });
             
@@ -205,12 +221,14 @@ const main = function() {
             }, (error: Error | null, count: number) => {
               if (error !== null) {
                 reject(error);
+                return;
               }
 
               if (!hasLastAddress) {
                 db.run(`ALTER TABLE ${tableName} ADD COLUMN lastAddress TEXT NOT NULL DEFAULT '';`, (error: Error | null) => {
                   if (error !== null) {
                     reject(error);
+                    return;
                   }
                   if (lastOne) {
                     resolve();
@@ -247,6 +265,34 @@ const main = function() {
     let currentParticipationRateEpoch: number | null = null;
     let currentParticipationRateDate: number | null = null;
     const twoThird = 2 / 3;
+
+    const isPassportWalletAlreadyUsed = function(walletAddress: string) {
+      return new Promise<boolean>(async (resolve, reject) => {
+        db.get(`SELECT walletAddress from passport WHERE walletAddress = ?;`, walletAddress, (error: Error | null, row: any ) => {
+          if (error !== null) {
+            reject(error);
+          }
+          if (row === undefined) {
+            resolve(false);
+          } else {
+            resolve(true);
+          }
+        });
+      });
+    };
+
+    const storePassportWallet = function(walletAddress: string, userId: string) {
+      return new Promise<void>(async (resolve, reject) => {
+        db.serialize(() => {
+          db.run(`INSERT INTO passport(walletAddress, userId) VALUES(?, ?);`, walletAddress, userId, (error: Error | null) => {
+            if (error !== null) {
+              reject(error);
+            }
+            resolve();
+          });
+        });
+      });
+    };
 
     const getLastRequest = function(userId: string, tableName: string) {
       return new Promise<lastRequest | null>(async (resolve, reject) => {
@@ -1012,14 +1058,47 @@ const main = function() {
               return;
             }
 
-            // TODO: Mutex on wallet address
+            // Mutex on wallet address
             const uniformedAddress = utils.getAddress(decodedSignature.claimed_signatory);
 
-            // Verify if that wallet address is not already associated with another Discord user
-            // TODO
+            if (existingVerificationWalletRequest.get(uniformedAddress) === true) {
+              await interaction.followUp({
+                content: `There is already a pending verification request for this wallet address (${uniformedAddress}). Please wait until that request is completed for ${userMen}.`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`There is already a pending verification request for this wallet address (${uniformedAddress}). Please wait until that request is completed for @${userTag} (${userId}).`);
+              return;
+            } else {
+              existingVerificationWalletRequest.set(uniformedAddress, true);
+            }
 
-            await interaction.editReply({ content: `All done.` });
-            resolve();
+            try {
+
+              // Verify if that wallet address is not already associated with another Discord user
+              await interaction.editReply({ content: `Verifying if this wallet address was already used by another Discord user...` });
+
+              const walletAlreadyUsed = await isPassportWalletAlreadyUsed(uniformedAddress);
+
+              if (walletAlreadyUsed) {
+                await interaction.followUp({
+                  content: `This this wallet address (${uniformedAddress}) was already used with a different Discord user. Please try again with a different Gitcoin Passport for ${userMen}.`,
+                  allowedMentions: { parse: ['users'], repliedUser: false }
+                });
+                reject(`This this wallet address (${uniformedAddress}) was already used with a different Discord user. Please try again with a different Gitcoin Passport for @${userTag} (${userId}).`);
+                return;
+              }
+
+              // Verify the associated Gitcoin Passport
+              await interaction.editReply({ content: `Verifying the associated Gitcoin Passport...` });
+
+
+
+              await interaction.editReply({ content: `All done.` });
+              resolve();
+
+            } finally {
+              existingVerificationWalletRequest.delete(uniformedAddress);
+            }
 
           } finally {
             existingVerificationUserRequest.delete(userId);
