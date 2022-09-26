@@ -1,7 +1,7 @@
 import { config } from 'dotenv';
 config();
 
-import { Client, GatewayIntentBits, userMention, channelMention, GuildMemberRoleManager, TextChannel } from 'discord.js';
+import { Client, GatewayIntentBits, userMention, channelMention, GuildMemberRoleManager, TextChannel, ActionRowBuilder } from 'discord.js';
 import { BigNumber, providers, utils, Wallet } from 'ethers';
 import { Database } from 'sqlite3';
 import { MessageFlags } from 'discord-api-types/v9';
@@ -773,6 +773,38 @@ const main = function() {
           content: msg,
           flags: MessageFlags.SuppressEmbeds
         });
+
+      } else if (commandName === 'verify-passport') {
+        console.log(`${commandName} from ${userTag} (${userId})`);
+
+        // Restrict command to channel
+        const restrictChannel = interaction.guild?.channels.cache.find((channel) => channel.id === process.env.PASSPORT_CHANNEL_ID);
+        if (restrictChannel !== undefined) {
+          if (interaction.channelId !== restrictChannel.id) {
+            const channelMen = channelMention(restrictChannel.id);
+            console.log(`This is the wrong channel for this bot command (${commandName}). You should try in #${restrictChannel.name} for @${userTag} (${userId}).`);
+            await interaction.reply({
+              content: `This is the wrong channel for this bot command (${commandName}). You should try in ${channelMen} for ${userMen}.`,
+              allowedMentions: { parse: ['users'], repliedUser: false }
+            });
+            return;
+          }
+        }
+
+        await interaction.reply({ content: 'Building signing URL...', ephemeral: true });
+
+        const my_request = { requested_message: `My Discord user ${userTag} (${userId}) has access to this Gitcoin Passport address.` };
+        const url_safe_string = encodeURIComponent( JSON.stringify( my_request ) );
+        const base64_encoded = url_safe_string;
+        const signer_is_url = `https://signer.is/#/sign/${ base64_encoded }`;
+
+        /*const row = new ActionRowBuilder()
+          .addComponents(new )
+
+        await interaction.editReply({
+          content: 'Sign a message to prove you own a wallet address associated with your Gitcoin Passport.',
+          components: [row]
+        });*/
 
       }
     });

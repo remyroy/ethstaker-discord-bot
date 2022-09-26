@@ -68,6 +68,9 @@ const commands = [
       .setName('user')
       .setDescription('An optional user to ping with the message.')
       .setRequired(false)),
+  new SlashCommandBuilder()
+    .setName('verify-passport')
+    .setDescription('Verify your Gitcoin Passport created on https://passport.gitcoin.co/.'),
 ]
 	.map(command => command.toJSON());
 
