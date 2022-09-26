@@ -481,17 +481,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@gitcoinco/passport-sdk-scorer@npm:^0.1.4":
-  version: 0.1.4
-  resolution: "@gitcoinco/passport-sdk-scorer@npm:0.1.4"
-  dependencies:
-    "@gitcoinco/passport-sdk-reader": ^0.1.4
-    "@gitcoinco/passport-sdk-types": ^0.2.0
-    "@gitcoinco/passport-sdk-verifier": ^0.2.1
-  checksum: 08ad197712e6fc61cbaf6bb635061700991726d994f4ba6e8d94218cd2b10d05f64fb9a14cc97b82c35c2298416994a3b950de4e27da495a78789f84dac3bde2
-  languageName: node
-  linkType: hard
-
 "@gitcoinco/passport-sdk-types@npm:^0.2.0":
   version: 0.2.0
   resolution: "@gitcoinco/passport-sdk-types@npm:0.2.0"
@@ -499,14 +488,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@gitcoinco/passport-sdk-verifier@npm:^0.2.1":
+"@gitcoinco/passport-sdk-verifier@file:../passport-sdk/packages/verifier::locator=ethstaker-discord-bot%40workspace%3A.":
   version: 0.2.1
-  resolution: "@gitcoinco/passport-sdk-verifier@npm:0.2.1"
+  resolution: "@gitcoinco/passport-sdk-verifier@file:../passport-sdk/packages/verifier#../passport-sdk/packages/verifier::hash=319f72&locator=ethstaker-discord-bot%40workspace%3A."
   dependencies:
     "@gitcoinco/passport-sdk-reader": ^0.1.4
     "@gitcoinco/passport-sdk-types": ^0.2.0
-    "@spruceid/didkit-wasm": ^0.2.1
-  checksum: df97f50af352b17967a918213fda0932fb99c45d617c128d62bdd7cb17a35adb29bafad588362ba7ade89be5f26aa57e4dbde2163dd1cdf2df47f5dbd298f139
+    "@spruceid/didkit-wasm-node": ^0.2.1
+  checksum: 13cdd81838586ec245454b6dc75b773e1fd08b16d075f645d57fdf658462e4ffb93dcae079c3153ba413a493c0325e90c8dae84cde0eed92bae5636f7d1c7dd3
   languageName: node
   linkType: hard
 
@@ -593,10 +582,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@spruceid/didkit-wasm@npm:^0.2.1":
+"@spruceid/didkit-wasm-node@npm:^0.2.1":
   version: 0.2.1
-  resolution: "@spruceid/didkit-wasm@npm:0.2.1"
-  checksum: 53d5fb9ab019ebf6f08461e3d97dcb15347474e9fd47f8c4bfd69c88136414cc1ffd4181ab6ffa297c317d490e3f5840ca633e4c0a3e1e8ca04a6a16411d531f
+  resolution: "@spruceid/didkit-wasm-node@npm:0.2.1"
+  checksum: 0054978f56b6d63ccbb4aa234fcff7006a284af101e6b6844e0aab8991926059075fb70a1b7c2b6697f16a76b43eb5df9b930b681095962b18866c68063b9cde
   languageName: node
   linkType: hard
 
@@ -1760,8 +1749,7 @@ __metadata:
   dependencies:
     "@discordjs/builders": ^1.2.0
     "@discordjs/rest": ^1.1.0
-    "@gitcoinco/passport-sdk-scorer": ^0.1.4
-    "@gitcoinco/passport-sdk-verifier": ^0.2.1
+    "@gitcoinco/passport-sdk-verifier": ../passport-sdk/packages/verifier
     "@tsconfig/node16": ^1.0.3
     "@types/eventsource": ^1.1.9
     "@types/luxon": ^3.0.1

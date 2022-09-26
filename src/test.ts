@@ -8,6 +8,7 @@ import {
   CommandInteraction, ButtonBuilder, ButtonInteraction, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { BigNumber, providers, utils, Wallet } from 'ethers';
 import { Database } from 'sqlite3';
+
 import { MessageFlags } from 'discord-api-types/v9';
 import { DateTime, Duration } from 'luxon';
 
@@ -17,7 +18,7 @@ import seedrandom from 'seedrandom';
 
 const db = new Database('db.sqlite');
 const quickNewRequest = Duration.fromObject({ days: 1 });
-const maxTransactionCost = utils.parseUnits("0.02", "ether");
+const maxTransactionCost = utils.parseUnits("0.01", "ether");
 const validatorDepositCost = utils.parseUnits("32", "ether");
 
 const restrictedRoles = new Set<string>(process.env.ROLE_IDS?.split(','));
@@ -57,6 +58,8 @@ function churn_per_day(active_validators: number) {
 
 const main = function() {
   return new Promise<void>(async (mainResolve, mainReject) => {
+
+    const PassportVerifier = (await import("@gitcoinco/passport-sdk-verifier")).PassportVerifier;
 
     const mainnetProvider = new providers.InfuraProvider(providers.getNetwork('mainnet'), process.env.INFURA_API_KEY);
 
@@ -916,6 +919,89 @@ const main = function() {
     const existingVerificationUserRequest = new Map<string, boolean>();
     const existingVerificationWalletRequest = new Map<string, boolean>();
 
+    const scoringProviders = [
+      ["Google", 1],
+      ["Twitter", 1],
+      ["Ens", 2],
+      ["Poh", 4],
+      ["POAP", 1],
+      ["Facebook", 1],
+      ["FacebookFriends", 1],
+      ["FacebookProfilePicture", 1],
+      ["Brightid", 10],
+      ["Github", 1],
+      ["FiveOrMoreGithubRepos", 1],
+      ["TenOrMoreGithubFollowers", 2],
+      ["FiftyOrMoreGithubFollowers", 4],
+      ["ForkedGithubRepoProvider", 1],
+      ["StarredGithubRepoProvider", 1],
+      ["Linkedin", 1],
+      ["Discord", 1],
+      ["TwitterTweetGT10", 1],
+      ["TwitterFollowerGT100", 1],
+      ["TwitterFollowerGT500", 2],
+      ["TwitterFollowerGTE1000", 3],
+      ["TwitterFollowerGT5000", 5],
+      ["SelfStakingBronze", 1],
+      ["SelfStakingSilver", 1],
+      ["SelfStakingGold", 1],
+      ["CommunityStakingBronze", 1],
+      ["CommunityStakingSilver", 1],
+      ["CommunityStakingGold", 1],
+      ["ClearTextSimple", 1],
+      ["ClearTextTwitter", 1],
+      ["ClearTextGithubOrg", 1],
+      ["SnapshotProposalsProvider", 1],
+      ["SnapshotVotesProvider", 1],
+      ["EthGasProvider", 1],
+      ["FirstEthTxnProvider", 1],
+      ["EthGTEOneTxnProvider", 1],
+      ["GitcoinContributorStatistics#numGrantsContributeToGte#1", 1],
+      ["GitcoinContributorStatistics#numGrantsContributeToGte#10", 1],
+      ["GitcoinContributorStatistics#numGrantsContributeToGte#25", 2],
+      ["GitcoinContributorStatistics#numGrantsContributeToGte#100", 2],
+      ["GitcoinContributorStatistics#totalContributionAmountGte#10", 1],
+      ["GitcoinContributorStatistics#totalContributionAmountGte#100", 2],
+      ["GitcoinContributorStatistics#totalContributionAmountGte#1000", 2],
+      ["GitcoinContributorStatistics#numRoundsContributedToGte#1", 1],
+      ["GitcoinContributorStatistics#numGr14ContributionsGte#1", 1],
+      ["GitcoinGranteeStatistics#numOwnedGrants#1", 1],
+      ["GitcoinGranteeStatistics#numGrantContributors#10", 1],
+      ["GitcoinGranteeStatistics#numGrantContributors#25", 1],
+      ["GitcoinGranteeStatistics#numGrantContributors#100", 2],
+      ["GitcoinGranteeStatistics#totalContributionAmount#100", 1],
+      ["GitcoinGranteeStatistics#totalContributionAmount#1000", 2],
+      ["GitcoinGranteeStatistics#totalContributionAmount#10000", 4],
+      ["GitcoinGranteeStatistics#numGrantsInEcoAndCauseRound#1", 1],
+      ["gtcPossessionsGte#100", 2],
+      ["gtcPossessionsGte#10", 1],
+      ["ethPossessionsGte#32", 1],
+      ["ethPossessionsGte#10", 1],
+      ["ethPossessionsGte#1", 1],
+      ["NFT", 1],
+      ["Lens", 1],
+      ["ZkSync", 1],
+    ];
+
+    interface scoringCriterion {
+      provider: string,
+      issuer: string,
+      score: number
+    };
+
+    const scoringCriteria: scoringCriterion[] = scoringProviders.map(function(value) {
+      return {
+        provider: value[0] as string,
+        issuer: "did:key:z6MkghvGHLobLEdj1bgRLhS4LPGJAvbMA1tn2zcRyqmYU5LC",
+        score: value[1] as number
+      };
+    });
+
+    const scoringIds = new Map<string, scoringCriterion>();
+    scoringCriteria.forEach(function(criterion) {
+      scoringIds.set(`${criterion.issuer}:${criterion.provider}`, criterion);
+    });
+
     const handleModalSubmitInteraction = function(interaction: ModalSubmitInteraction) {
       return new Promise<void>(async (resolve, reject) => {
 
@@ -954,7 +1040,7 @@ const main = function() {
             // Validate signature
             await interaction.reply({ content: `Validating signature...`, ephemeral: true});
             
-            const signatureRegexMatch = signature.match(/https\:\/\/signer\.is\/#\/verify\/(?<signature>[A-Za-z0-9]+=)/);
+            const signatureRegexMatch = signature.match(/https\:\/\/signer\.is\/#\/verify\/(?<signature>[A-Za-z0-9=]+)/);
             if (signatureRegexMatch === null) {
               await interaction.followUp({
                 content: `This is not a valid signature from Signer.is. Please try again for ${userMen}`,
@@ -1091,7 +1177,39 @@ const main = function() {
               // Verify the associated Gitcoin Passport
               await interaction.editReply({ content: `Verifying the associated Gitcoin Passport...` });
 
+              const verifier = new PassportVerifier();
+              const passport = await verifier.verifyPassport(uniformedAddress);
+              if (passport === false) {
+                await interaction.followUp({
+                  content: `There is no Gitcoin Passport associated with this wallet address (${uniformedAddress}). Create your Gitcoin Passport first for ${userMen}.`,
+                  allowedMentions: { parse: ['users'], repliedUser: false }
+                });
+                reject(`There is no Gitcoin Passport associated with this wallet address (${uniformedAddress}). Create your Gitcoin Passport first for @${userTag} (${userId}).`);
+                return;
+              }
 
+              // Verify the associated Gitcoin Passport
+              await interaction.editReply({ content: `Computing your Gitcoin Passport score...` });
+
+              let passportScore = 0;
+
+              passport.stamps.forEach(function(stamp) {
+                if (stamp.verified !== true) {
+                  return;
+                }
+
+                const stampId = `${stamp.credential.issuer}:${stamp.provider}`;
+
+                const stampScore = scoringIds.get(stampId)?.score;
+                if (stampScore !== undefined) {
+                  passportScore = passportScore + stampScore;
+                }
+              });
+
+              await interaction.followUp({
+                content: `Your Gitcoin Passport score is ${passportScore} for ${userMen}.`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
 
               await interaction.editReply({ content: `All done.` });
               resolve();
