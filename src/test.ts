@@ -810,6 +810,16 @@ const main = function() {
             }
           }
 
+          // Check if the user already has the role.
+          const hasRole = (interaction.member?.roles as GuildMemberRoleManager).cache.find((role) => role.id === process.env.PASSPORT_ROLE_ID) !== undefined;
+          if (hasRole) {
+            await interaction.reply({
+              content: `You already have the role associated with being verified with Gitcoin Passport. No need to verify again for ${userMen}.`,
+            });
+            reject(`User already has Passport verified role. ${userTag} (${userId})`);
+            return;
+          }
+
           const my_request = { requested_message: `My Discord user ${userTag} (${userId}) has access to this Gitcoin Passport address.` };
           const url_safe_string = encodeURIComponent( JSON.stringify( my_request ) );
           const base64_encoded = Buffer.from(url_safe_string).toString('base64').replace('+', '-').replace('/', '_').replace(/=+$/, '');
@@ -832,7 +842,11 @@ const main = function() {
             .setDescription('Prove your wallet address ownership here.');
 
           await interaction.reply({
-            content: `Create your Gitcoin Passport or add enough stamps in it and prove you own that wallet address. Enter your signature after signing the message.`,
+            content: `Create your Gitcoin Passport, add enough stamps in it and ` +
+                     `prove you own that wallet address. Once you are done filling ` +
+                     `your Gitcoin Passport and signing the message to prove ` +
+                     `ownership, click the *Copy Link* button on Signer.is ` +
+                     `and click the **Enter Signature** button to paste your signature URL.`,
             components: [row],
             embeds: [gitcoinPassportEmbed, signerEmbed],
             ephemeral: true
@@ -847,6 +861,12 @@ const main = function() {
       });
     };
 
+    interface signatureStructure {
+      claimed_message: string,
+      signed_message: string,
+      claimed_signatory: string
+    }
+
     const handleModalSubmitInteraction = function(interaction: ModalSubmitInteraction) {
       return new Promise<void>(async (resolve, reject) => {
 
@@ -855,10 +875,106 @@ const main = function() {
         const userMen = userMention(userId);
 
         if (interaction.customId === 'ownerVerify') {
-          const signature = interaction.fields.getTextInputValue('signatureInput');
-          console.log(`Signature is ${signature}`);
 
-          await interaction.reply({ content: `Your signature is ${signature}`, ephemeral: true });
+          // Check if the user already has the role.
+          const hasRole = (interaction.member?.roles as GuildMemberRoleManager).cache.find((role) => role.id === process.env.PASSPORT_ROLE_ID) !== undefined;
+          if (hasRole) {
+            await interaction.reply({
+              content: `You already have the role associated with being verified with Gitcoin Passport. No need to verify again for ${userMen}.`,
+            });
+            reject(`User already has Passport verified role. ${userTag} (${userId})`);
+            return;
+          }
+
+          const signature = interaction.fields.getTextInputValue('signatureInput');
+
+          // Signature should look like https://signer.is/#/verify/JTdCJTIyY2xhaW1lZF9tZXNzYWdlJTIyJTNBJTIyTXklMjBEaXNjb3JkJTIwdXNlciUyMFJlbXklMjBSb3klMjMxODM3JTIwKDEwMjk1MjAzNjM4MjgzMDU5MiklMjBoYXMlMjBhY2Nlc3MlMjB0byUyMHRoaXMlMjBHaXRjb2luJTIwUGFzc3BvcnQlMjBhZGRyZXNzLiUyMiUyQyUyMnNpZ25lZF9tZXNzYWdlJTIyJTNBJTIyMHhlZDhmYjAzYjNhYWRlODRlYTRhY2E1YzcwMWRjMTAzNGU0YTVjYTQ2YmJkMWNhNDQ3ZjJkNGJjNzBjOTA2NzFiMGZlMGU2ZGUwN2JiNGZkMmMzOTIzMmM5NjJhOTI2YTI2MjRhZTlmN2U5OWIzNDgwZmY0YTQyYzdmNmQ5MWYyNzAxJTIyJTJDJTIyY2xhaW1lZF9zaWduYXRvcnklMjIlM0ElMjIweDUzN2UwYzg1Y2E5ZmQxNjRiMmYyOGNmNDk5MjQyMGI1M2ZlNjVkMDIlMjIlN0Q=
+
+          // Validate signature
+          await interaction.reply({ content: `Validating signature...`, ephemeral: true});
+          
+          const signatureRegexMatch = signature.match(/https\:\/\/signer\.is\/#\/verify\/(?<signature>[A-Za-z0-9]+=)/);
+          if (signatureRegexMatch === null) {
+            await interaction.editReply({ content: `This is not a valid signature from Signer.is. Please try again.`});
+            reject(`Invalid signature. ${signature} ${userTag} (${userId})`);
+            return;
+          }
+
+          const encodedSignature = signatureRegexMatch.groups?.signature;
+          if (encodedSignature === undefined) {
+            await interaction.editReply({ content: `Unable to parse signature from Signer.is. Please try again.` });
+            reject(`Invalid signature. Unable to parse. ${signature} ${userTag} (${userId})`);
+            return;
+          }
+
+          // Decode signature
+          let signatureElements: any | null = null;
+          try {
+            signatureElements = JSON.parse(decodeURIComponent(Buffer.from(encodedSignature, 'base64').toString()));
+          } catch (error) {
+            await interaction.editReply({ content: `Unable to parse signature JSON from Signer.is. Please try again.` });
+            reject(`Invalid signature. Unable to parse JSON. ${signature} ${error} ${userTag} (${userId})`);
+            return;
+          }
+            
+          const decodedSignature = signatureElements as signatureStructure;
+
+          if (
+            decodedSignature.claimed_message === undefined ||
+            decodedSignature.claimed_signatory === undefined ||
+            decodedSignature.signed_message === undefined
+            ) {
+            await interaction.editReply({ content: `Unexpected structure in signature. Please try again.` });
+            reject(`Unexpected structure in signature. ${signatureElements} ${userTag} (${userId})`);
+            return;
+          }
+
+          // Validate signed message
+          await interaction.editReply({ content: `Verifying signed message...` });
+
+          const messageRegexMatch = decodedSignature.claimed_message.match(/My Discord user .+? \((?<userId>[^\)]+)\) has access to this Gitcoin Passport address./);
+          if (messageRegexMatch === null) {
+            await interaction.editReply({ content: `The signature does not contain the correct signed message. Please try again using the Signer.is link provided.`});
+            reject(`Invalid signed message. ${decodedSignature.claimed_message} ${userTag} (${userId})`);
+            return;
+          }
+
+          const signedMessageUserId = messageRegexMatch.groups?.userId;
+          if (signedMessageUserId === undefined) {
+            await interaction.editReply({ content: `Unable to parse signed message from Signer.is. Please try again.` });
+            reject(`Invalid signed message. Unable to parse. ${decodedSignature.claimed_message} ${userTag} (${userId})`);
+            return;
+          }
+
+          if (signedMessageUserId !== userId) {
+            await interaction.editReply({ content: `The user ID included in the signed message does not match your Discord user ID. Please try again using the Signer.is link provided.` });
+            reject(`User ID mismatch from the signed message. Expected ${userId} but got ${signedMessageUserId}. ${userTag} (${userId})`);
+            return;
+          }
+
+          const confirmedSignatory = utils.verifyMessage( decodedSignature.claimed_message, decodedSignature.signed_message ).toLowerCase();
+          const validSignature = confirmedSignatory === decodedSignature.claimed_signatory;
+
+          if (!validSignature) {
+            await interaction.editReply({ content: `This is not a valid signature from Signer.is. Please try again using the Signer.is link provided.` });
+            reject(`Not a valid signature after verifying the message for ${userTag} (${userId})`);
+            return;
+          }
+
+          // Verify if that wallet address is valid
+          if (!utils.isAddress(decodedSignature.claimed_signatory)) {
+            await interaction.followUp({
+              content: `The included wallet address in your signature (${decodedSignature.claimed_signatory}) is not valid for ${userMen}`,
+              allowedMentions: { parse: ['users'], repliedUser: false }
+            });
+            reject(`The included wallet address in the signature (${decodedSignature.claimed_signatory}) is not valid for ${userTag} (${userId})`);
+            return;
+          }
+
+          // Verify if that wallet address is not already associated with another Discord user
+          // TODO
+
+          await interaction.editReply({ content: `All done.` });
 
         } else {
           reject(`Unknown modal submission: ${interaction.customId}`);
@@ -878,13 +994,23 @@ const main = function() {
 
         if (interaction.customId === 'sendSignature') {
 
+          // Check if the user already has the role.
+          const hasRole = (interaction.member?.roles as GuildMemberRoleManager).cache.find((role) => role.id === process.env.PASSPORT_ROLE_ID) !== undefined;
+          if (hasRole) {
+            await interaction.reply({
+              content: `You already have the role associated with being verified with Gitcoin Passport. No need to verify again for ${userMen}.`,
+            });
+            reject(`User already has Passport verified role. ${userTag} (${userId})`);
+            return;
+          }
+
           const modal = new ModalBuilder()
             .setCustomId('ownerVerify')
             .setTitle('Gitcoin Passport ownership verification');
 
           const signatureInput = new TextInputBuilder()
             .setCustomId('signatureInput')
-            .setLabel("Paste the signature URL here")
+            .setLabel("Paste your signature URL here.")
             .setStyle(TextInputStyle.Paragraph);
 
           const firstActionRow = new ActionRowBuilder<TextInputBuilder>().addComponents(signatureInput);
