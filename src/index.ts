@@ -1239,15 +1239,15 @@ const main = function() {
                 return;
               }
 
-              // Storing the wallet address for associated Gitcoin Passport
-              await interaction.editReply({ content: `Storing your Gitcoin Passport...` });
-
-              await storePassportWallet(uniformedAddress, userId);
-
               // Assigning the Passport role
               await interaction.editReply({ content: `Assigning your new role...` });
 
               await (interaction.member?.roles as GuildMemberRoleManager).add(process.env.PASSPORT_ROLE_ID as string, 'Completed the Gitcoin Passport verification process.');
+
+              // Storing the wallet address for associated Gitcoin Passport
+              await interaction.editReply({ content: `Storing your Gitcoin Passport...` });
+
+              await storePassportWallet(uniformedAddress, userId);
 
               await interaction.followUp({
                 content: `You completed the Gitcoin Passport verification process (${passportScore}). You should now have access to everything that is unlocked with this Passport for ${userMen}.`,
