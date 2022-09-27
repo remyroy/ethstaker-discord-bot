@@ -1,9 +1,16 @@
 import { config } from 'dotenv';
 config();
 
-import { Client, GatewayIntentBits, userMention, channelMention, GuildMemberRoleManager, TextChannel, ActionRowBuilder } from 'discord.js';
+import {
+  Client, GatewayIntentBits, userMention, channelMention,
+  GuildMemberRoleManager, TextChannel, ModalBuilder, TextInputBuilder,
+  TextInputStyle, ActionRowBuilder, ModalSubmitInteraction,
+  CommandInteraction, ButtonBuilder, ButtonInteraction, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { BigNumber, providers, utils, Wallet } from 'ethers';
 import { Database } from 'sqlite3';
+
+import { Passport } from '@gitcoinco/passport-sdk-types';
+
 import { MessageFlags } from 'discord-api-types/v9';
 import { DateTime, Duration } from 'luxon';
 
@@ -13,10 +20,13 @@ import seedrandom from 'seedrandom';
 
 const db = new Database('db.sqlite');
 const quickNewRequest = Duration.fromObject({ days: 1 });
-const maxTransactionCost = utils.parseUnits("0.02", "ether");
+const maxTransactionCost = utils.parseUnits("0.01", "ether");
 const validatorDepositCost = utils.parseUnits("32", "ether");
 
 const restrictedRoles = new Set<string>(process.env.ROLE_IDS?.split(','));
+restrictedRoles.add(process.env.PASSPORT_ROLE_ID as string);
+
+const passportScoreThreshold = Number(process.env.PASSPORT_SCORE_THRESHOLD);
 
 const EPOCHS_PER_DAY = 225;
 const MIN_PER_EPOCH_CHURN_LIMIT = 4;
@@ -53,6 +63,8 @@ function churn_per_day(active_validators: number) {
 
 const main = function() {
   return new Promise<void>(async (mainResolve, mainReject) => {
+
+    const PassportVerifier = (await import("@gitcoinco/passport-sdk-verifier")).PassportVerifier;
 
     const mainnetProvider = new providers.InfuraProvider(providers.getNetwork('mainnet'), process.env.INFURA_API_KEY);
 
@@ -173,6 +185,20 @@ const main = function() {
     const initDb = function(db: Database, faucetCommandsConfig: Map<string, networkConfig>) {
       return new Promise<void>(async (resolve, reject) => {
         db.serialize(() => {
+          db.run(`CREATE TABLE IF NOT EXISTS passport (walletAddress TEXT PRIMARY KEY UNIQUE NOT NULL, userId TEXT NOT NULL);`, (error: Error | null) => {
+            if (error !== null) {
+              reject(error);
+              return;
+            }
+          });
+
+          db.run(`CREATE UNIQUE INDEX IF NOT EXISTS passport_walletAddress on passport ( walletAddress );`, (error: Error | null) => {
+            if (error !== null) {
+              reject(error);
+              return;
+            }
+          });
+
           let index = 0;
           faucetCommandsConfig.forEach((config, key, map) => {
             const tableName = config.requestTable;
@@ -180,11 +206,13 @@ const main = function() {
             db.run(`CREATE TABLE IF NOT EXISTS ${tableName} (userId TEXT PRIMARY KEY UNIQUE NOT NULL, lastRequested INTEGER NOT NULL, lastAddress TEXT NOT NULL);`, (error: Error | null) => {
               if (error !== null) {
                 reject(error);
+                return;
               }
             });
             db.run(`CREATE UNIQUE INDEX IF NOT EXISTS ${tableName}_userID on ${tableName} ( userID );`, (error: Error | null) => {
               if (error !== null) {
                 reject(error);
+                return;
               }
             });
             
@@ -201,12 +229,14 @@ const main = function() {
             }, (error: Error | null, count: number) => {
               if (error !== null) {
                 reject(error);
+                return;
               }
 
               if (!hasLastAddress) {
                 db.run(`ALTER TABLE ${tableName} ADD COLUMN lastAddress TEXT NOT NULL DEFAULT '';`, (error: Error | null) => {
                   if (error !== null) {
                     reject(error);
+                    return;
                   }
                   if (lastOne) {
                     resolve();
@@ -243,6 +273,34 @@ const main = function() {
     let currentParticipationRateEpoch: number | null = null;
     let currentParticipationRateDate: number | null = null;
     const twoThird = 2 / 3;
+
+    const isPassportWalletAlreadyUsed = function(walletAddress: string) {
+      return new Promise<boolean>(async (resolve, reject) => {
+        db.get(`SELECT walletAddress from passport WHERE walletAddress = ?;`, walletAddress, (error: Error | null, row: any ) => {
+          if (error !== null) {
+            reject(error);
+          }
+          if (row === undefined) {
+            resolve(false);
+          } else {
+            resolve(true);
+          }
+        });
+      });
+    };
+
+    const storePassportWallet = function(walletAddress: string, userId: string) {
+      return new Promise<void>(async (resolve, reject) => {
+        db.serialize(() => {
+          db.run(`INSERT INTO passport(walletAddress, userId) VALUES(?, ?);`, walletAddress, userId, (error: Error | null) => {
+            if (error !== null) {
+              reject(error);
+            }
+            resolve();
+          });
+        });
+      });
+    };
 
     const getLastRequest = function(userId: string, tableName: string) {
       return new Promise<lastRequest | null>(async (resolve, reject) => {
@@ -305,509 +363,955 @@ const main = function() {
     });
 
     client.on('interactionCreate', async interaction => {
-      if (!interaction.isCommand()) return;
 
-      const { commandName } = interaction;
-      const userTag = interaction.user.tag;
-      const userId = interaction.user.id;
-      const userMen = userMention(userId);
-
-      if (commandName === 'ping') {
-        console.log(`Ping from ${userTag} (${userId})!`);
-        await interaction.reply('Pong!');
-      } else if (commandName === 'participation-mainnet-auto') {
-
-        // Check if it's my master
-        if (userId !== process.env.MASTER_USER_ID) {
-          await interaction.reply({
-            content: `You cannot use this command (${commandName}). You are not my master for ${userMen}.`,
-            allowedMentions: { parse: ['users'], repliedUser: false }
-          });
-          return;
-        }
-
-        const enabled = interaction.options.get('enabled', true).value as boolean;
-
-        participationRateAutoPost = enabled;
-        if (participationRateAutoPost) {
-          participationRateAutoPostChannel = client.channels.cache.find((channel) => channel.id === interaction.channelId) as TextChannel;
-          const participationRateAutoPostChannelMention = channelMention(interaction.channelId);
-
-          await interaction.reply({
-            content: `Participation rate auto post for Mainnet enabled on ${participationRateAutoPostChannelMention} for ${userMen}.`,
-            allowedMentions: { parse: ['users'], repliedUser: false }
-          });
-        } else {
-          await interaction.reply({
-            content: `Participation rate auto post for Mainnet disabled for ${userMen}.`,
-            allowedMentions: { parse: ['users'], repliedUser: false }
-          });
-        }
-        return;
-
-      } else if (commandName === 'participation-mainnet') {
-        console.log(`${commandName} from ${userTag} (${userId})`);
-
-        const message = participationRateMessage(userTag, userId, userMen);
-        await interaction.reply({
-          content: message,
-          allowedMentions: { parse: ['users'], repliedUser: false }
+      if (interaction.isCommand()) {
+        handleCommandInteraction(interaction).catch(message => {
+          console.log(`Command rejected: ${message}`);
         });
+      } else if (interaction.isModalSubmit()) {
+        handleModalSubmitInteraction(interaction).catch(message => {
+          console.log(`Modal submission rejected: ${message}`);
+        });
+      } else if (interaction.isButton()) {
+        handleButtonInteraction(interaction).catch(message => {
+          console.log(`Button rejected: ${message}`);
+        });
+      }
 
-      } else if (faucetCommandsConfig.has(commandName)) {
-        let targetAddress = interaction.options.get('address', true).value as string;
-        console.log(`${commandName} from ${userTag} (${userId}) to ${targetAddress}!`);
+    });
 
-        const config = faucetCommandsConfig.get(commandName) as networkConfig;
-        const channelName = config.channel;
+    const handleCommandInteraction = function(interaction: CommandInteraction) {
+      return new Promise<void>(async (resolve, reject) => {
 
-        if (channelName !== undefined && channelName !== '') {
-          const restrictChannel = interaction.guild?.channels.cache.find((channel) => channel.name === channelName);
-          if (restrictChannel !== undefined) {
-            if (interaction.channelId !== restrictChannel.id) {
-              const channelMen = channelMention(restrictChannel.id);
-              console.log(`This is the wrong channel for this bot command (${commandName}). You should try in #${restrictChannel.name} for @${userTag} (${userId}).`);
-              await interaction.reply({
-                content: `This is the wrong channel for this bot command (${commandName}). You should try in ${channelMen} for ${userMen}.`,
-                allowedMentions: { parse: ['users'], repliedUser: false }
-              });
-              return;
-            }
-          }
-        }
+        const { commandName } = interaction;
+        const userTag = interaction.user.tag;
+        const userId = interaction.user.id;
+        const userMen = userMention(userId);
 
-        // mutex on userId
-        const existingRequest = config.existingRequest;
+        if (commandName === 'ping') {
+          console.log(`Ping from ${userTag} (${userId})!`);
+          await interaction.reply('Pong!');
+        } else if (commandName === 'participation-mainnet-auto') {
 
-        if (existingRequest.get(userId) === true) {
-          console.log(`You already have a pending request. Please wait until your request is completed for @${userTag} (${userId}).`);
-          await interaction.reply({
-            content: `You already have a pending request. Please wait until your request is completed for ${userMen}.`,
-            allowedMentions: { parse: ['users'], repliedUser: false }
-          });
-          return;
-        } else {
-          existingRequest.set(userId, true);
-        }
-
-        try {
-
-          // Check for user role
-          await interaction.reply({ content: 'Checking if you have the proper role...', ephemeral: true });
-          const hasRole = restrictedRoles.size === 0 || (interaction.member?.roles as GuildMemberRoleManager).cache.find((role) => restrictedRoles.has(role.id)) !== undefined;
-          if (!hasRole) {
-            const brightIdMention = channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
-
-            console.log(`You cannot use this command without the correct role for @${userTag} (${userId}).`);
-            await interaction.followUp({
-              content: `You cannot use this command without the correct role. Join ${brightIdMention} to get started for ${userMen}.`,
+          // Check if it's my master
+          if (userId !== process.env.MASTER_USER_ID) {
+            await interaction.reply({
+              content: `You cannot use this command (${commandName}). You are not my master for ${userMen}.`,
               allowedMentions: { parse: ['users'], repliedUser: false }
             });
+            reject('No permission to use this command.');
             return;
           }
 
-          // Check the rate limit for this user
-          const tableName = config.requestTable;
-          const rateLimitDuration = config.rateLimitDuration;
+          const enabled = interaction.options.get('enabled', true).value as boolean;
 
-          await interaction.editReply('Checking if you are rate-limited...');
-          const lastRequest = await getLastRequest(userId, tableName);
-          let newRequestPart = '';
-          if (lastRequest !== null) {
-            const dtLastRequested = DateTime.fromMillis(lastRequest.lastRequested * 1000);
-            const dtRequestAvailable = dtLastRequested.plus(rateLimitDuration);
-            
-            let durRequestAvailable = dtRequestAvailable.diff(DateTime.utc()).shiftTo('days', 'hours').normalize();
-            if (durRequestAvailable.days === 0) {
-              durRequestAvailable = durRequestAvailable.shiftTo('hours', 'minutes');
-            }
-            const formattedDuration = durRequestAvailable.toHuman();
+          participationRateAutoPost = enabled;
+          if (participationRateAutoPost) {
+            participationRateAutoPostChannel = client.channels.cache.find((channel) => channel.id === interaction.channelId) as TextChannel;
+            const participationRateAutoPostChannelMention = channelMention(interaction.channelId);
 
-            if (DateTime.utc() < dtRequestAvailable) {
-              console.log(`You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for @${userTag} (${userId}).`);
-              await interaction.followUp({
-                content: `You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for ${userMen}.`,
-                allowedMentions: { parse: ['users'], repliedUser: false }
-              });
-              return;
-            } else {
-              let negDurRequestAvailable = durRequestAvailable.negate().shiftTo('days', 'hours').normalize();
-              if (negDurRequestAvailable.days === 0) {
-                negDurRequestAvailable = negDurRequestAvailable.shiftTo('hours', 'minutes');
-              }
-              const newRequestFormattedDuration = negDurRequestAvailable.toHuman();
+            await interaction.reply({
+              content: `Participation rate auto post for Mainnet enabled on ${participationRateAutoPostChannelMention} for ${userMen}.`,
+              allowedMentions: { parse: ['users'], repliedUser: false }
+            });
+          } else {
+            await interaction.reply({
+              content: `Participation rate auto post for Mainnet disabled for ${userMen}.`,
+              allowedMentions: { parse: ['users'], repliedUser: false }
+            });
+          }
 
-              newRequestPart = ` Your new request was available ${newRequestFormattedDuration} ago.`;
-              if (negDurRequestAvailable.toMillis() <= quickNewRequest.toMillis()) {
-                newRequestPart = newRequestPart.concat(` That was a quick new request! You should consider leaving some for the others.`);
+        } else if (commandName === 'participation-mainnet') {
+          console.log(`${commandName} from ${userTag} (${userId})`);
+
+          const message = participationRateMessage(userTag, userId, userMen);
+          await interaction.reply({
+            content: message,
+            allowedMentions: { parse: ['users'], repliedUser: false }
+          });
+
+        } else if (faucetCommandsConfig.has(commandName)) {
+          let targetAddress = interaction.options.get('address', true).value as string;
+          console.log(`${commandName} from ${userTag} (${userId}) to ${targetAddress}!`);
+
+          const config = faucetCommandsConfig.get(commandName) as networkConfig;
+          const channelName = config.channel;
+
+          if (channelName !== undefined && channelName !== '') {
+            const restrictChannel = interaction.guild?.channels.cache.find((channel) => channel.name === channelName);
+            if (restrictChannel !== undefined) {
+              if (interaction.channelId !== restrictChannel.id) {
+                const channelMen = channelMention(restrictChannel.id);
+                await interaction.reply({
+                  content: `This is the wrong channel for this bot command (${commandName}). You should try in ${channelMen} for ${userMen}.`,
+                  allowedMentions: { parse: ['users'], repliedUser: false }
+                });
+                reject(`This is the wrong channel for this bot command (${commandName}). You should try in #${restrictChannel.name} for @${userTag} (${userId}).`);
+                return;
               }
             }
           }
 
-          // Check for farmer role
-          const hasFarmerRole = (interaction.member?.roles as GuildMemberRoleManager).cache.find((role) => role.id.trim() === process.env.FARMER_ROLE_ID?.trim()) !== undefined;
-          if (hasFarmerRole) {
+          // mutex on userId
+          const existingRequest = config.existingRequest;
 
-            const rng = seedrandom(userId);
-            const rateLimitDays = rateLimitDuration.shiftTo('days').days;
-            const randomDate = DateTime.fromMillis(rng() * rateLimitDays * 24 * 60 * 60 * 1000).set({ year: 3000 });
-            let durRandom = randomDate.diff(DateTime.utc()).shiftTo('days', 'hours').normalize();
-            durRandom = durRandom.set({ days: durRandom.days % rateLimitDays });
-            if (durRandom.days === 0) {
-              durRandom = durRandom.shiftTo('hours', 'minutes');
+          if (existingRequest.get(userId) === true) {
+            await interaction.reply({
+              content: `You already have a pending request. Please wait until your request is completed for ${userMen}.`,
+              allowedMentions: { parse: ['users'], repliedUser: false }
+            });
+            reject(`You already have a pending request. Please wait until your request is completed for @${userTag} (${userId}).`);
+            return;
+          } else {
+            existingRequest.set(userId, true);
+          }
+
+          try {
+
+            // Check for user role
+            await interaction.reply({ content: 'Checking if you have the proper role...', ephemeral: true });
+            const hasRole = restrictedRoles.size === 0 || (interaction.member?.roles as GuildMemberRoleManager).cache.find((role) => restrictedRoles.has(role.id)) !== undefined;
+            if (!hasRole) {
+              const brightIdMention = channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
+              const passportVerificationMention = channelMention(process.env.PASSPORT_CHANNEL_ID as string);
+
+              await interaction.followUp({
+                content: `You cannot use this command without the correct role. Join ${brightIdMention} or ${passportVerificationMention} to get started for ${userMen}.`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`You cannot use this command without the correct role for @${userTag} (${userId}).`);
+              return;
             }
 
-            const formattedDuration = durRandom.toHuman();
-            console.log(`You cannot do another request this soon my friend. You will need to wait at least ${formattedDuration} before you can request again for @${userTag} (${userId}).`);
+            // Check the rate limit for this user
+            const tableName = config.requestTable;
+            const rateLimitDuration = config.rateLimitDuration;
+
+            await interaction.editReply('Checking if you are rate-limited...');
+            const lastRequest = await getLastRequest(userId, tableName);
+            let newRequestPart = '';
+            if (lastRequest !== null) {
+              const dtLastRequested = DateTime.fromMillis(lastRequest.lastRequested * 1000);
+              const dtRequestAvailable = dtLastRequested.plus(rateLimitDuration);
+              
+              let durRequestAvailable = dtRequestAvailable.diff(DateTime.utc()).shiftTo('days', 'hours').normalize();
+              if (durRequestAvailable.days === 0) {
+                durRequestAvailable = durRequestAvailable.shiftTo('hours', 'minutes');
+              }
+              const formattedDuration = durRequestAvailable.toHuman();
+
+              if (DateTime.utc() < dtRequestAvailable) {
+                await interaction.followUp({
+                  content: `You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for ${userMen}.`,
+                  allowedMentions: { parse: ['users'], repliedUser: false }
+                });
+                reject(`You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for @${userTag} (${userId}).`);
+                return;
+              } else {
+                let negDurRequestAvailable = durRequestAvailable.negate().shiftTo('days', 'hours').normalize();
+                if (negDurRequestAvailable.days === 0) {
+                  negDurRequestAvailable = negDurRequestAvailable.shiftTo('hours', 'minutes');
+                }
+                const newRequestFormattedDuration = negDurRequestAvailable.toHuman();
+
+                newRequestPart = ` Your new request was available ${newRequestFormattedDuration} ago.`;
+                if (negDurRequestAvailable.toMillis() <= quickNewRequest.toMillis()) {
+                  newRequestPart = newRequestPart.concat(` That was a quick new request! You should consider leaving some for the others.`);
+                }
+              }
+            }
+
+            // Check for farmer role
+            const hasFarmerRole = (interaction.member?.roles as GuildMemberRoleManager).cache.find((role) => role.id.trim() === process.env.FARMER_ROLE_ID?.trim()) !== undefined;
+            if (hasFarmerRole) {
+
+              const rng = seedrandom(userId);
+              const rateLimitDays = rateLimitDuration.shiftTo('days').days;
+              const randomDate = DateTime.fromMillis(rng() * rateLimitDays * 24 * 60 * 60 * 1000).set({ year: 3000 });
+              let durRandom = randomDate.diff(DateTime.utc()).shiftTo('days', 'hours').normalize();
+              durRandom = durRandom.set({ days: durRandom.days % rateLimitDays });
+              if (durRandom.days === 0) {
+                durRandom = durRandom.shiftTo('hours', 'minutes');
+              }
+
+              const formattedDuration = durRandom.toHuman();
               await interaction.followUp({
                 content: `You cannot do another request this soon my friend. You will need to wait at least ${formattedDuration} before you can request again for ${userMen}.`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
               });
-            return;
-          }
+              reject(`You cannot do another request this soon my friend. You will need to wait at least ${formattedDuration} before you can request again for @${userTag} (${userId}).`);
+              return;
+            }
 
-          // Potentially resolving the ENS address
-          if (targetAddress.indexOf('.') >= 0) {
-            await interaction.editReply(`Resolving ENS ${targetAddress}...`);
-            try {
-              const resolvedAddress = await mainnetProvider.resolveName(targetAddress);
-              if (resolvedAddress === null) {
-                console.log(`No address found for ENS ${targetAddress} for @${userTag} (${userId}).`);
+            // Potentially resolving the ENS address
+            if (targetAddress.indexOf('.') >= 0) {
+              await interaction.editReply(`Resolving ENS ${targetAddress}...`);
+              try {
+                const resolvedAddress = await mainnetProvider.resolveName(targetAddress);
+                if (resolvedAddress === null) {
+                  await interaction.followUp({
+                    content: `No address found for ENS ${targetAddress} for ${userMen}.`,
+                    allowedMentions: { parse: ['users'], repliedUser: false }
+                  });
+                  reject(`No address found for ENS ${targetAddress} for @${userTag} (${userId}).`);
+                  return;
+                }
+                targetAddress = resolvedAddress;
+              } catch (error) {
                 await interaction.followUp({
-                  content: `No address found for ENS ${targetAddress} for ${userMen}.`,
+                  content: `Error while trying to resolved ENS ${targetAddress} for ${userMen}. ${error}`,
                   allowedMentions: { parse: ['users'], repliedUser: false }
                 });
+                reject(`Error while trying to resolved ENS ${targetAddress} for @${userTag} (${userId}). ${error}`);
                 return;
               }
-              targetAddress = resolvedAddress;
+            } else {
+              // Valid address check
+              await interaction.editReply(`Checking if ${targetAddress} is a valid address...`);
+              if (!utils.isAddress(targetAddress)) {
+                await interaction.followUp({
+                  content: `The wallet address provided (${targetAddress}) is not valid for ${userMen}`,
+                  allowedMentions: { parse: ['users'], repliedUser: false }
+                });
+                reject(`The wallet address provided (${targetAddress}) is not valid for @${userTag} (${userId})`);
+                return;
+              }
+            }
+
+            // Verify that the targetAddress balance does not already have enough currency
+            const currency = config.currency;
+            const provider = config.provider;
+            const requestAmount = config.requestAmount;
+            let sendingAmount = requestAmount;
+
+            await interaction.editReply(`Checking if you already have enough ${currency}...`);
+            try {
+              const targetBalance = await provider.getBalance(targetAddress);
+              if (targetBalance.gte(requestAmount)) {
+                await storeLastRequest(userId, targetAddress, tableName);
+
+                const enoughReason = config.enoughReason;
+                await interaction.followUp({
+                  content: `You already have ${utils.formatEther(targetBalance)} ${currency} in ${targetAddress}. ${enoughReason} for ${userMen}.`,
+                  allowedMentions: { parse: ['users'], repliedUser: false }
+                });
+                reject(`You already have ${utils.formatEther(targetBalance)} ${currency} in ${targetAddress}. ${enoughReason} for @${userTag} (${userId}).`);
+                return;
+              }
+              sendingAmount = requestAmount.sub(targetBalance);
             } catch (error) {
-              console.log(`Error while trying to resolved ENS ${targetAddress} for @${userTag} (${userId}). ${error}`);
-              console.log(error);
-              await interaction.followUp({
-                content: `Error while trying to resolved ENS ${targetAddress} for ${userMen}. ${error}`,
-                allowedMentions: { parse: ['users'], repliedUser: false }
-              });
+              await interaction.followUp(`Error while trying to get balance from ${targetAddress} for ${userMen}. ${error}`);
+              reject(`Error while trying to get balance from ${targetAddress} for @${userTag} (${userId}). ${error}`);
               return;
             }
-          } else {
-            // Valid address check
-            await interaction.editReply(`Checking if ${targetAddress} is a valid address...`);
-            if (!utils.isAddress(targetAddress)) {
-              console.log(`The wallet address provided (${targetAddress}) is not valid for @${userTag} (${userId})`);
-              await interaction.followUp({
-                content: `The wallet address provided (${targetAddress}) is not valid for ${userMen}`,
-                allowedMentions: { parse: ['users'], repliedUser: false }
-              });
-              return
+
+            // Verify that we have enough currency left in the faucet
+            const wallet = config.wallet;
+            const network = config.network;
+            const minNeeded = sendingAmount.add(maxTransactionCost);
+            let faucetBalance = BigNumber.from(0);
+
+            await interaction.editReply('Checking if we have enough fund for this request...');
+            try {
+              faucetBalance = await wallet.getBalance();
+              if (faucetBalance.lt(minNeeded)) {
+                await interaction.followUp({
+                  content: `The ${network} faucet is empty. Please contact an administrator to fill it up. From ${userMen}.`,
+                  allowedMentions: { parse: ['users'], repliedUser: false }
+                });
+                reject(`The ${network} faucet is empty. Please contact an administrator to fill it up. From @${userTag} (${userId}).`);
+                return;
+              }
+            } catch (error) {
+              await interaction.followUp(`Error while trying to get balance from the ${network} faucet for ${userMen}. ${error}`);
+              reject(`Error while trying to get balance from the ${network} faucet for @${userTag} (${userId}). ${error}`);
+              return;
             }
-          }
 
-          // Verify that the targetAddress balance does not already have enough currency
-          const currency = config.currency;
-          const provider = config.provider;
-          const requestAmount = config.requestAmount;
-          let sendingAmount = requestAmount;
-
-          await interaction.editReply(`Checking if you already have enough ${currency}...`);
-          try {
-            const targetBalance = await provider.getBalance(targetAddress);
-            if (targetBalance.gte(requestAmount)) {
+            // Send the currency
+            await interaction.editReply(`Sending ${utils.formatEther(sendingAmount)} ${currency} to ${targetAddress}...`);
+            try {
+              const transaction = await wallet.sendTransaction({
+                to: targetAddress,
+                value: sendingAmount
+              });
+              
               await storeLastRequest(userId, targetAddress, tableName);
 
-              const enoughReason = config.enoughReason;
-              console.log(`You already have ${utils.formatEther(targetBalance)} ${currency} in ${targetAddress}. ${enoughReason} for @${userTag} (${userId}).`);
+              const transactionHash = transaction.hash;
+              const explorerTxRoot = config.explorerTxRoot;
+              const explorerTxURL = explorerTxRoot + transactionHash;
+              await interaction.editReply(`${utils.formatEther(sendingAmount)} ${currency} have been sent to ${targetAddress}. Explore that transaction on ${explorerTxURL}. Waiting for 1 confirm...`);
+              await transaction.wait(1);
+              await interaction.editReply(`Transaction confirmed with 1 block confirmation.`);
+              
+              const remainingRequests = faucetBalance.sub(sendingAmount).div(requestAmount);
+              console.log(`${utils.formatEther(sendingAmount)} ${currency} have been sent to ${targetAddress} for @${userTag} (${userId}).${newRequestPart}`);
+              console.log(`There are ${remainingRequests} remaining requests with the current balance.`);
+
               await interaction.followUp({
-                content: `You already have ${utils.formatEther(targetBalance)} ${currency} in ${targetAddress}. ${enoughReason} for ${userMen}.`,
-                allowedMentions: { parse: ['users'], repliedUser: false }
-              });
-              return;
+                content: `${utils.formatEther(sendingAmount)} ${currency} have been sent to ${targetAddress} for ${userMen}.${newRequestPart} Explore that transaction on ${explorerTxURL}\n\nThere are ${remainingRequests} remaining requests with the current balance.`,
+                allowedMentions: { parse: ['users'], repliedUser: false },
+                flags: MessageFlags.SuppressEmbeds });
+
+            } catch (error) {
+              console.log(`Error while trying to send ${utils.formatEther(sendingAmount)} ${currency} to ${targetAddress} for @${userTag} (${userId}). ${error}`);
+              console.log(error);
+              await interaction.followUp(`Error while trying to send ${utils.formatEther(sendingAmount)} ${currency} to ${targetAddress} for ${userMen}. ${error}`);
             }
-            sendingAmount = requestAmount.sub(targetBalance);
+
           } catch (error) {
-            console.log(`Error while trying to get balance from ${targetAddress} for @${userTag} (${userId}). ${error}`);
+            console.log(`Unexpected error while using the ${commandName} command for @${userTag} (${userId}). ${error}`);
             console.log(error);
-            await interaction.followUp(`Error while trying to get balance from ${targetAddress} for ${userMen}. ${error}`);
-            return;
+            await interaction.followUp(`Unexpected error while using the ${commandName} command for ${userMen}. ${error}`);
+          }
+          finally {
+            existingRequest.delete(userId);
           }
 
-          // Verify that we have enough currency left in the faucet
-          const wallet = config.wallet;
+        } else if (queueCommandsConfig.has(commandName)) {
+          console.log(`${commandName} from ${userTag} (${userId})`);
+
+          const config = queueCommandsConfig.get(commandName) as queueConfig;
           const network = config.network;
-          const minNeeded = sendingAmount.add(maxTransactionCost);
-          let faucetBalance = BigNumber.from(0);
+          const apiQueueUrl = config.apiQueueUrl;
 
-          await interaction.editReply('Checking if we have enough fund for this request...');
+          // TODO: Get the actual number of active validators
+          const activeValidators = 1;
+          const churnPerDay = churn_per_day(activeValidators);
+
           try {
-            faucetBalance = await wallet.getBalance();
-            if (faucetBalance.lt(minNeeded)) {
-              console.log(`The ${network} faucet is empty. Please contact an administrator to fill it up. From @${userTag} (${userId}).`);
-              await interaction.followUp({
-                content: `The ${network} faucet is empty. Please contact an administrator to fill it up. From ${userMen}.`,
-                allowedMentions: { parse: ['users'], repliedUser: false }
-              });
+            await interaction.reply({ content: `Querying beaconcha.in API for ${network} queue details...`, ephemeral: true });
+            const response = await axios.get(apiQueueUrl);
+            if (response.status !== 200) {
+              await interaction.followUp(`Unexpected status code from querying beaconcha.in API for ${network} queue details. Status code ${response.status} for ${userMen}.`);
+              reject(`Unexpected status code from querying beaconcha.in API for ${network} queue details. Status code ${response.status} for @${userTag} (${userId}).`);
               return;
             }
-          } catch (error) {
-            console.log(`Error while trying to get balance from the ${network} faucet for @${userTag} (${userId}). ${error}`);
-            console.log(error);
-            await interaction.followUp(`Error while trying to get balance from the ${network} faucet for ${userMen}. ${error}`);
-            return;
-          }
 
-          // Send the currency
-          await interaction.editReply(`Sending ${utils.formatEther(sendingAmount)} ${currency} to ${targetAddress}...`);
-          try {
-            const transaction = await wallet.sendTransaction({
-              to: targetAddress,
-              value: sendingAmount
-            });
-            
-            await storeLastRequest(userId, targetAddress, tableName);
+            interface queueResponse {
+              status: string,
+              data: {
+                beaconchain_entering: number,
+                beaconchain_exiting: number
+              }
+            };
 
-            const transactionHash = transaction.hash;
-            const explorerTxRoot = config.explorerTxRoot;
-            const explorerTxURL = explorerTxRoot + transactionHash;
-            await interaction.editReply(`${utils.formatEther(sendingAmount)} ${currency} have been sent to ${targetAddress}. Explore that transaction on ${explorerTxURL}. Waiting for 1 confirm...`);
-            await transaction.wait(1);
-            await interaction.editReply(`Transaction confirmed with 1 block confirmation.`);
-            
-            const remainingRequests = faucetBalance.sub(sendingAmount).div(requestAmount);
-            console.log(`${utils.formatEther(sendingAmount)} ${currency} have been sent to ${targetAddress} for @${userTag} (${userId}).${newRequestPart}`);
-            console.log(`There are ${remainingRequests} remaining requests with the current balance.`);
+            const queryResponse = response.data as queueResponse;
+
+            if (queryResponse.status !== "OK") {
+              await interaction.followUp(`Unexpected body status from querying beaconcha.in API for ${network} queue details. Body status ${queryResponse.status} for ${userMen}.`);
+              reject(`Unexpected body status from querying beaconcha.in API for ${network} queue details. Body status ${queryResponse.status} for @${userTag} (${userId}).`);
+              return;
+            }
+
+            const activationNormalProcessingMsg = 'It should only take 16-24 hours for a new deposit to be processed and an associated validator to be activated.';
+            const activationNormalProcessingMaxDuration = Duration.fromObject({ hours: 24 });
+
+            let activationQueueMessage = `The **activation queue** is empty. ${activationNormalProcessingMsg}`;
+            let exitQueueMessage = 'The **exit queue** is empty. It should only take a few minutes for a validator to complete a voluntary exit.';
+
+            if (queryResponse.data.beaconchain_entering > 0) {
+              const activationDays = queryResponse.data.beaconchain_entering / churnPerDay;
+              let activationDuration = Duration.fromObject({ days: activationDays }).shiftTo('days', 'hours').normalize();
+              if (activationDuration.days === 0) {
+                activationDuration = activationDuration.shiftTo('hours', 'minutes');
+              }
+              const formattedActivationDuration = activationDuration.toHuman();
+
+              if (activationDuration.toMillis() <= activationNormalProcessingMaxDuration.toMillis()) {
+                activationQueueMessage = `There are **${queryResponse.data.beaconchain_entering} validators awaiting to be activated**. The queue should clear out in ${formattedActivationDuration} if there is no new deposit. ${activationNormalProcessingMsg}`;
+              } else {
+                activationQueueMessage = `There are **${queryResponse.data.beaconchain_entering} validators awaiting to be activated**. It should take at least ${formattedActivationDuration} for a new deposit to be processed and an associated validator to be activated.`;
+              }
+            }
+            if (queryResponse.data.beaconchain_exiting > 0) {
+              const exitDays = queryResponse.data.beaconchain_exiting / churnPerDay;
+              let exitDuration = Duration.fromObject({ days: exitDays }).shiftTo('days', 'hours').normalize();
+              if (exitDuration.days === 0) {
+                exitDuration = exitDuration.shiftTo('hours', 'minutes');
+              }
+              const formattedExitDuration = exitDuration.toHuman();
+
+              exitQueueMessage = `There are **${queryResponse.data.beaconchain_exiting} validators awaiting to exit** the network. It should take at least ${formattedExitDuration} for a voluntary exit to be processed and an associated validator to leave the network.`;
+            }
+
+            console.log(`Current queue details for ${network} for @${userTag} (${userId})\n\n- ${activationQueueMessage}\n- ${exitQueueMessage}`);
 
             await interaction.followUp({
-              content: `${utils.formatEther(sendingAmount)} ${currency} have been sent to ${targetAddress} for ${userMen}.${newRequestPart} Explore that transaction on ${explorerTxURL}\n\nThere are ${remainingRequests} remaining requests with the current balance.`,
+              content: `Current queue details for **${network}** for ${userMen}\n\n- ${activationQueueMessage}\n- ${exitQueueMessage}`,
               allowedMentions: { parse: ['users'], repliedUser: false },
               flags: MessageFlags.SuppressEmbeds });
-
+            
           } catch (error) {
-            console.log(`Error while trying to send ${utils.formatEther(sendingAmount)} ${currency} to ${targetAddress} for @${userTag} (${userId}). ${error}`);
+            console.log(`Error while trying to query beaconcha.in API for ${network} queue details for @${userTag} (${userId}). ${error}`);
             console.log(error);
-            await interaction.followUp(`Error while trying to send ${utils.formatEther(sendingAmount)} ${currency} to ${targetAddress} for ${userMen}. ${error}`);
+            await interaction.followUp(`Error while trying to query beaconcha.in API for ${network} queue details for ${userMen}. ${error}`);
           }
 
-        } catch (error) {
-          console.log(`Unexpected error while using the ${commandName} command for @${userTag} (${userId}). ${error}`);
-          console.log(error);
-          await interaction.followUp(`Unexpected error while using the ${commandName} command for ${userMen}. ${error}`);
-        }
-        finally {
-          existingRequest.delete(userId);
-        }
+        } else if (commandName === 'goeth-msg') {
+          console.log(`${commandName} from ${userTag} (${userId})`);
 
-      } else if (queueCommandsConfig.has(commandName)) {
-        console.log(`${commandName} from ${userTag} (${userId})`);
+          const channelName = process.env.GOERLI_CHANNEL_NAME;
+          let channelMen = '';
 
-        const config = queueCommandsConfig.get(commandName) as queueConfig;
-        const network = config.network;
-        const apiQueueUrl = config.apiQueueUrl;
-
-        // TODO: Get the actual number of active validators
-        const activeValidators = 1;
-        const churnPerDay = churn_per_day(activeValidators);
-
-        try {
-          await interaction.reply({ content: `Querying beaconcha.in API for ${network} queue details...`, ephemeral: true });
-          const response = await axios.get(apiQueueUrl);
-          if (response.status !== 200) {
-            console.log(`Unexpected status code from querying beaconcha.in API for ${network} queue details. Status code ${response.status} for @${userTag} (${userId}).`);
-            await interaction.followUp(`Unexpected status code from querying beaconcha.in API for ${network} queue details. Status code ${response.status} for ${userMen}.`);
-            return;
-          }
-
-          interface queueResponse {
-            status: string,
-            data: {
-              beaconchain_entering: number,
-              beaconchain_exiting: number
-            }
-          };
-
-          const queryResponse = response.data as queueResponse;
-
-          if (queryResponse.status !== "OK") {
-            console.log(`Unexpected body status from querying beaconcha.in API for ${network} queue details. Body status ${queryResponse.status} for @${userTag} (${userId}).`);
-            await interaction.followUp(`Unexpected body status from querying beaconcha.in API for ${network} queue details. Body status ${queryResponse.status} for ${userMen}.`);
-            return;
-          }
-
-          const activationNormalProcessingMsg = 'It should only take 16-24 hours for a new deposit to be processed and an associated validator to be activated.';
-          const activationNormalProcessingMaxDuration = Duration.fromObject({ hours: 24 });
-
-          let activationQueueMessage = `The **activation queue** is empty. ${activationNormalProcessingMsg}`;
-          let exitQueueMessage = 'The **exit queue** is empty. It should only take a few minutes for a validator to complete a voluntary exit.';
-
-          if (queryResponse.data.beaconchain_entering > 0) {
-            const activationDays = queryResponse.data.beaconchain_entering / churnPerDay;
-            let activationDuration = Duration.fromObject({ days: activationDays }).shiftTo('days', 'hours').normalize();
-            if (activationDuration.days === 0) {
-              activationDuration = activationDuration.shiftTo('hours', 'minutes');
-            }
-            const formattedActivationDuration = activationDuration.toHuman();
-
-            if (activationDuration.toMillis() <= activationNormalProcessingMaxDuration.toMillis()) {
-              activationQueueMessage = `There are **${queryResponse.data.beaconchain_entering} validators awaiting to be activated**. The queue should clear out in ${formattedActivationDuration} if there is no new deposit. ${activationNormalProcessingMsg}`;
-            } else {
-              activationQueueMessage = `There are **${queryResponse.data.beaconchain_entering} validators awaiting to be activated**. It should take at least ${formattedActivationDuration} for a new deposit to be processed and an associated validator to be activated.`;
+          if (channelName !== undefined && channelName !== '') {
+            const requestChannel = interaction.guild?.channels.cache.find((channel) => channel.name === channelName);
+            if (requestChannel !== undefined) {
+              channelMen = channelMention(requestChannel.id);
             }
           }
-          if (queryResponse.data.beaconchain_exiting > 0) {
-            const exitDays = queryResponse.data.beaconchain_exiting / churnPerDay;
-            let exitDuration = Duration.fromObject({ days: exitDays }).shiftTo('days', 'hours').normalize();
-            if (exitDuration.days === 0) {
-              exitDuration = exitDuration.shiftTo('hours', 'minutes');
-            }
-            const formattedExitDuration = exitDuration.toHuman();
 
-            exitQueueMessage = `There are **${queryResponse.data.beaconchain_exiting} validators awaiting to exit** the network. It should take at least ${formattedExitDuration} for a voluntary exit to be processed and an associated validator to leave the network.`;
+          const brightIdMention = channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
+          const passportMention = channelMention(process.env.PASSPORT_CHANNEL_ID as string);
+
+          let targetUser = 'You';
+
+          const inputUser = interaction.options.getUser('user', false);
+          if (inputUser !== null) {
+            targetUser = userMention(inputUser.id);
           }
 
-          console.log(`Current queue details for ${network} for @${userTag} (${userId})\n\n- ${activationQueueMessage}\n- ${exitQueueMessage}`);
-
-          await interaction.followUp({
-            content: `Current queue details for **${network}** for ${userMen}\n\n- ${activationQueueMessage}\n- ${exitQueueMessage}`,
-            allowedMentions: { parse: ['users'], repliedUser: false },
-            flags: MessageFlags.SuppressEmbeds });
+          const msg = (
+            `${targetUser} can request Goerli ETH to run a validator on Goerli on ${channelMen}` +
+            ` but first, you will need to be BrightID verified in ${brightIdMention} or Passport` +
+            ` verified in ${passportMention}. Alternatively` +
+            ` you can use these online faucets https://faucetlink.to/goerli for ${userMen}`
+            );
           
-        } catch (error) {
-          console.log(`Error while trying to query beaconcha.in API for ${network} queue details for @${userTag} (${userId}). ${error}`);
-          console.log(error);
-          await interaction.followUp(`Error while trying to query beaconcha.in API for ${network} queue details for ${userMen}. ${error}`);
-        }
+          interaction.reply({
+            content: msg,
+            flags: MessageFlags.SuppressEmbeds
+          });
 
-      } else if (commandName === 'goeth-msg') {
-        console.log(`${commandName} from ${userTag} (${userId})`);
+        } else if (commandName === 'ropsten-eth-msg') {
+          console.log(`${commandName} from ${userTag} (${userId})`);
 
-        const channelName = process.env.GOERLI_CHANNEL_NAME;
-        let channelMen = '';
+          const channelName = process.env.ROPSTEN_CHANNEL_NAME;
+          let channelMen = '';
 
-        if (channelName !== undefined && channelName !== '') {
-          const requestChannel = interaction.guild?.channels.cache.find((channel) => channel.name === channelName);
-          if (requestChannel !== undefined) {
-            channelMen = channelMention(requestChannel.id);
+          if (channelName !== undefined && channelName !== '') {
+            const requestChannel = interaction.guild?.channels.cache.find((channel) => channel.name === channelName);
+            if (requestChannel !== undefined) {
+              channelMen = channelMention(requestChannel.id);
+            }
           }
-        }
 
-        const brightIdMention = channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
+          const brightIdMention = channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
+          const passportMention = channelMention(process.env.PASSPORT_CHANNEL_ID as string);
 
-        let targetUser = 'You';
+          let targetUser = 'You';
 
-        const inputUser = interaction.options.getUser('user', false);
-        if (inputUser !== null) {
-          targetUser = userMention(inputUser.id);
-        }
-
-        const msg = (
-          `${targetUser} can request Goerli ETH to run a validator on Goerli on ${channelMen}` +
-          ` but first, you will need to be BrightID verified in ${brightIdMention}. Alternatively` +
-          ` you can use these online faucets https://faucetlink.to/goerli for ${userMen}`
-          );
-        
-        interaction.reply({
-          content: msg,
-          flags: MessageFlags.SuppressEmbeds
-        });
-
-      } else if (commandName === 'ropsten-eth-msg') {
-        console.log(`${commandName} from ${userTag} (${userId})`);
-
-        const channelName = process.env.ROPSTEN_CHANNEL_NAME;
-        let channelMen = '';
-
-        if (channelName !== undefined && channelName !== '') {
-          const requestChannel = interaction.guild?.channels.cache.find((channel) => channel.name === channelName);
-          if (requestChannel !== undefined) {
-            channelMen = channelMention(requestChannel.id);
+          const inputUser = interaction.options.getUser('user', false);
+          if (inputUser !== null) {
+            targetUser = userMention(inputUser.id);
           }
-        }
 
-        const brightIdMention = channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
+          const msg = (
+            `${targetUser} can request Ropsten ETH to run a validator on Ropsten on ${channelMen}` +
+            ` but first, you will need to be BrightID verified in ${brightIdMention} or Passport` +
+            ` verified in ${passportMention}. Alternatively` +
+            ` you can use these online faucets https://faucetlink.to/ropsten for ${userMen}`
+            );
+          
+          interaction.reply({
+            content: msg,
+            flags: MessageFlags.SuppressEmbeds
+          });
 
-        let targetUser = 'You';
+        } else if (commandName === 'sepolia-eth-msg') {
+          console.log(`${commandName} from ${userTag} (${userId})`);
 
-        const inputUser = interaction.options.getUser('user', false);
-        if (inputUser !== null) {
-          targetUser = userMention(inputUser.id);
-        }
+          const channelName = process.env.SEPOLIA_CHANNEL_NAME;
+          let channelMen = '';
 
-        const msg = (
-          `${targetUser} can request Ropsten ETH to run a validator on Ropsten on ${channelMen}` +
-          ` but first, you will need to be BrightID verified in ${brightIdMention}. Alternatively` +
-          ` you can use these online faucets https://faucetlink.to/ropsten for ${userMen}`
-          );
-        
-        interaction.reply({
-          content: msg,
-          flags: MessageFlags.SuppressEmbeds
-        });
-
-      } else if (commandName === 'sepolia-eth-msg') {
-        console.log(`${commandName} from ${userTag} (${userId})`);
-
-        const channelName = process.env.SEPOLIA_CHANNEL_NAME;
-        let channelMen = '';
-
-        if (channelName !== undefined && channelName !== '') {
-          const requestChannel = interaction.guild?.channels.cache.find((channel) => channel.name === channelName);
-          if (requestChannel !== undefined) {
-            channelMen = channelMention(requestChannel.id);
+          if (channelName !== undefined && channelName !== '') {
+            const requestChannel = interaction.guild?.channels.cache.find((channel) => channel.name === channelName);
+            if (requestChannel !== undefined) {
+              channelMen = channelMention(requestChannel.id);
+            }
           }
-        }
 
-        const brightIdMention = channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
+          const brightIdMention = channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
+          const passportMention = channelMention(process.env.PASSPORT_CHANNEL_ID as string);
 
-        let targetUser = 'You';
+          let targetUser = 'You';
 
-        const inputUser = interaction.options.getUser('user', false);
-        if (inputUser !== null) {
-          targetUser = userMention(inputUser.id);
-        }
+          const inputUser = interaction.options.getUser('user', false);
+          if (inputUser !== null) {
+            targetUser = userMention(inputUser.id);
+          }
 
-        const msg = (
-          `${targetUser} can request Sepolia ETH to test transactions on the Sepolia testnet on ${channelMen}` +
-          ` but first, you will need to be BrightID verified in ${brightIdMention}. Alternatively` +
-          ` you can use these online faucets https://faucetlink.to/sepolia for ${userMen}`
-          );
-        
-        interaction.reply({
-          content: msg,
-          flags: MessageFlags.SuppressEmbeds
-        });
+          const msg = (
+            `${targetUser} can request Sepolia ETH to test transactions on the Sepolia testnet on ${channelMen}` +
+            ` but first, you will need to be BrightID verified in ${brightIdMention} or Passport` +
+            ` verified in ${passportMention}. Alternatively` +
+            ` you can use these online faucets https://faucetlink.to/sepolia for ${userMen}`
+            );
+          
+          interaction.reply({
+            content: msg,
+            flags: MessageFlags.SuppressEmbeds
+          });
 
-      } else if (commandName === 'verify-passport') {
-        console.log(`${commandName} from ${userTag} (${userId})`);
+        } else if (commandName === 'verify-passport') {
+          console.log(`${commandName} from ${userTag} (${userId})`);
 
-        // Restrict command to channel
-        const restrictChannel = interaction.guild?.channels.cache.find((channel) => channel.id === process.env.PASSPORT_CHANNEL_ID);
-        if (restrictChannel !== undefined) {
-          if (interaction.channelId !== restrictChannel.id) {
-            const channelMen = channelMention(restrictChannel.id);
-            console.log(`This is the wrong channel for this bot command (${commandName}). You should try in #${restrictChannel.name} for @${userTag} (${userId}).`);
+          // Restrict command to channel
+          const restrictChannel = interaction.guild?.channels.cache.find((channel) => channel.id === process.env.PASSPORT_CHANNEL_ID);
+          if (restrictChannel !== undefined) {
+            if (interaction.channelId !== restrictChannel.id) {
+              const channelMen = channelMention(restrictChannel.id);
+              await interaction.reply({
+                content: `This is the wrong channel for this bot command (${commandName}). You should try in ${channelMen} for ${userMen}.`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`This is the wrong channel for this bot command (${commandName}). You should try in #${restrictChannel.name} for @${userTag} (${userId}).`);
+              return;
+            }
+          }
+
+          // Check if the user already has the role.
+          const hasRole = (interaction.member?.roles as GuildMemberRoleManager).cache.find((role) => role.id === process.env.PASSPORT_ROLE_ID) !== undefined;
+          if (hasRole) {
             await interaction.reply({
-              content: `This is the wrong channel for this bot command (${commandName}). You should try in ${channelMen} for ${userMen}.`,
+              content: `You already have the role associated with being verified with Gitcoin Passport. No need to verify again for ${userMen}.`,
+            });
+            reject(`User already has Passport verified role. ${userTag} (${userId})`);
+            return;
+          }
+
+          const my_request = { requested_message: `My Discord user ${userTag} (${userId}) has access to this Gitcoin Passport address.` };
+          const url_safe_string = encodeURIComponent( JSON.stringify( my_request ) );
+          const base64_encoded = Buffer.from(url_safe_string).toString('base64').replace('+', '-').replace('/', '_').replace(/=+$/, '');
+          const signer_is_url = `https://signer.is/#/sign/${ base64_encoded }`;
+
+          const row = new ActionRowBuilder<ButtonBuilder>()
+            .addComponents(new ButtonBuilder()
+              .setCustomId('sendSignature')
+              .setStyle(ButtonStyle.Primary)
+              .setLabel('Enter Signature'));
+          
+          const gitcoinPassportEmbed = new EmbedBuilder()
+            .setTitle('Gitcoin Passport')
+            .setURL('https://passport.gitcoin.co/')
+            .setDescription('Create your Gitcoin Passport or add stamps to your Gitcoin Passport.');
+
+          const signerEmbed = new EmbedBuilder()
+            .setTitle('Signer.is')
+            .setURL(signer_is_url)
+            .setDescription('Prove your wallet address ownership here.');
+
+          await interaction.reply({
+            content: `Create your Gitcoin Passport, add enough stamps in it and ` +
+                     `prove you own that wallet address. Once you are done filling ` +
+                     `your Gitcoin Passport and signing the message to prove ` +
+                     `ownership, click the *Copy Link* button on Signer.is ` +
+                     `and click the **Enter Signature** button to paste your signature URL.`,
+            components: [row],
+            embeds: [gitcoinPassportEmbed, signerEmbed],
+            ephemeral: true
+          });
+
+        } else {
+          reject(`Unknown command: ${commandName}`);
+        }
+
+        resolve();
+
+      });
+    };
+
+    interface signatureStructure {
+      claimed_message: string,
+      signed_message: string,
+      claimed_signatory: string
+    }
+
+    const existingVerificationUserRequest = new Map<string, boolean>();
+    const existingVerificationWalletRequest = new Map<string, boolean>();
+
+    const scoringProviders = [
+      ["Google", 1],
+      ["Twitter", 1],
+      ["Ens", 2],
+      ["Poh", 4],
+      ["POAP", 1],
+      ["Facebook", 1],
+      ["FacebookFriends", 1],
+      ["FacebookProfilePicture", 1],
+      ["Brightid", 10],
+      ["Github", 1],
+      ["FiveOrMoreGithubRepos", 1],
+      ["TenOrMoreGithubFollowers", 2],
+      ["FiftyOrMoreGithubFollowers", 4],
+      ["ForkedGithubRepoProvider", 1],
+      ["StarredGithubRepoProvider", 1],
+      ["Linkedin", 1],
+      ["Discord", 1],
+      ["TwitterTweetGT10", 1],
+      ["TwitterFollowerGT100", 1],
+      ["TwitterFollowerGT500", 2],
+      ["TwitterFollowerGTE1000", 3],
+      ["TwitterFollowerGT5000", 5],
+      ["SelfStakingBronze", 1],
+      ["SelfStakingSilver", 1],
+      ["SelfStakingGold", 1],
+      ["CommunityStakingBronze", 1],
+      ["CommunityStakingSilver", 1],
+      ["CommunityStakingGold", 1],
+      ["ClearTextSimple", 1],
+      ["ClearTextTwitter", 1],
+      ["ClearTextGithubOrg", 1],
+      ["SnapshotProposalsProvider", 1],
+      ["SnapshotVotesProvider", 1],
+      ["EthGasProvider", 1],
+      ["FirstEthTxnProvider", 1],
+      ["EthGTEOneTxnProvider", 1],
+      ["GitcoinContributorStatistics#numGrantsContributeToGte#1", 1],
+      ["GitcoinContributorStatistics#numGrantsContributeToGte#10", 1],
+      ["GitcoinContributorStatistics#numGrantsContributeToGte#25", 2],
+      ["GitcoinContributorStatistics#numGrantsContributeToGte#100", 2],
+      ["GitcoinContributorStatistics#totalContributionAmountGte#10", 1],
+      ["GitcoinContributorStatistics#totalContributionAmountGte#100", 2],
+      ["GitcoinContributorStatistics#totalContributionAmountGte#1000", 2],
+      ["GitcoinContributorStatistics#numRoundsContributedToGte#1", 1],
+      ["GitcoinContributorStatistics#numGr14ContributionsGte#1", 1],
+      ["GitcoinGranteeStatistics#numOwnedGrants#1", 1],
+      ["GitcoinGranteeStatistics#numGrantContributors#10", 1],
+      ["GitcoinGranteeStatistics#numGrantContributors#25", 1],
+      ["GitcoinGranteeStatistics#numGrantContributors#100", 2],
+      ["GitcoinGranteeStatistics#totalContributionAmount#100", 1],
+      ["GitcoinGranteeStatistics#totalContributionAmount#1000", 2],
+      ["GitcoinGranteeStatistics#totalContributionAmount#10000", 4],
+      ["GitcoinGranteeStatistics#numGrantsInEcoAndCauseRound#1", 1],
+      ["gtcPossessionsGte#100", 2],
+      ["gtcPossessionsGte#10", 1],
+      ["ethPossessionsGte#32", 1],
+      ["ethPossessionsGte#10", 1],
+      ["ethPossessionsGte#1", 1],
+      ["NFT", 1],
+      ["Lens", 1],
+      ["ZkSync", 1],
+    ];
+
+    interface scoringCriterion {
+      provider: string,
+      issuer: string,
+      score: number
+    };
+
+    const scoringCriteria: scoringCriterion[] = scoringProviders.map(function(value) {
+      return {
+        provider: value[0] as string,
+        issuer: "did:key:z6MkghvGHLobLEdj1bgRLhS4LPGJAvbMA1tn2zcRyqmYU5LC",
+        score: value[1] as number
+      };
+    });
+
+    const scoringIds = new Map<string, scoringCriterion>();
+    scoringCriteria.forEach(function(criterion) {
+      scoringIds.set(`${criterion.issuer}:${criterion.provider}`, criterion);
+    });
+
+    const handleModalSubmitInteraction = function(interaction: ModalSubmitInteraction) {
+      return new Promise<void>(async (resolve, reject) => {
+
+        const userTag = interaction.user.tag;
+        const userId = interaction.user.id;
+        const userMen = userMention(userId);
+
+        if (interaction.customId === 'ownerVerify') {
+
+          // Check if the user already has the role.
+          const hasRole = (interaction.member?.roles as GuildMemberRoleManager).cache.find((role) => role.id === process.env.PASSPORT_ROLE_ID) !== undefined;
+          if (hasRole) {
+            await interaction.reply({
+              content: `You already have the role associated with being verified with Gitcoin Passport. No need to verify again for ${userMen}.`,
+            });
+            reject(`User already has Passport verified role. ${userTag} (${userId})`);
+            return;
+          }
+
+          // Mutex on User ID
+          if (existingVerificationUserRequest.get(userId) === true) {
+            await interaction.reply({
+              content: `You already have a pending verification request. Please wait until your request is completed for ${userMen}.`,
               allowedMentions: { parse: ['users'], repliedUser: false }
             });
+            reject(`You already have a pending verification request. Please wait until your request is completed for @${userTag} (${userId}).`);
             return;
+          } else {
+            existingVerificationUserRequest.set(userId, true);
           }
+
+          try {
+
+            const signature = interaction.fields.getTextInputValue('signatureInput');
+
+            // Validate signature
+            await interaction.reply({ content: `Validating signature...`, ephemeral: true});
+            
+            const signatureRegexMatch = signature.match(/https\:\/\/signer\.is\/#\/verify\/(?<signature>[A-Za-z0-9=]+)/);
+            if (signatureRegexMatch === null) {
+              await interaction.followUp({
+                content: `This is not a valid signature from Signer.is. Please try again for ${userMen}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`Invalid signature. ${signature} ${userTag} (${userId})`);
+              return;
+            }
+
+            const encodedSignature = signatureRegexMatch.groups?.signature;
+            if (encodedSignature === undefined) {
+              await interaction.followUp({
+                content: `Unable to parse signature from Signer.is. Please try again for ${userMen}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`Invalid signature. Unable to parse. ${signature} ${userTag} (${userId})`);
+              return;
+            }
+
+            // Decode signature
+            let signatureElements: any | null = null;
+            try {
+              signatureElements = JSON.parse(decodeURIComponent(Buffer.from(encodedSignature, 'base64').toString()));
+            } catch (error) {
+              await interaction.followUp({
+                content: `Unable to parse signature JSON from Signer.is ${error}. Please try again for ${userMen}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`Invalid signature. Unable to parse JSON. ${signature} ${error} ${userTag} (${userId})`);
+              return;
+            }
+              
+            const decodedSignature = signatureElements as signatureStructure;
+
+            if (
+              decodedSignature.claimed_message === undefined ||
+              decodedSignature.claimed_signatory === undefined ||
+              decodedSignature.signed_message === undefined
+              ) {
+              await interaction.followUp({
+                content: `Unexpected structure in signature. Please try again for ${userMen}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`Unexpected structure in signature. ${signatureElements} ${userTag} (${userId})`);
+              return;
+            }
+
+            // Validate signed message
+            await interaction.editReply({ content: `Verifying signed message...` });
+
+            const messageRegexMatch = decodedSignature.claimed_message.match(/My Discord user .+? \((?<userId>[^\)]+)\) has access to this Gitcoin Passport address\./);
+            if (messageRegexMatch === null) {
+              await interaction.followUp({
+                content: `The signature does not contain the correct signed message. Please try again using the Signer.is link provided for ${userMen}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`Invalid signed message. ${decodedSignature.claimed_message} ${userTag} (${userId})`);
+              return;
+            }
+
+            const signedMessageUserId = messageRegexMatch.groups?.userId;
+            if (signedMessageUserId === undefined) {
+              await interaction.followUp({
+                content: `Unable to parse signed message from Signer.is. Please try again for ${userMen}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`Invalid signed message. Unable to parse. ${decodedSignature.claimed_message} ${userTag} (${userId})`);
+              return;
+            }
+
+            if (signedMessageUserId !== userId) {
+              await interaction.followUp({
+                content: `The user ID included in the signed message does not match your Discord user ID. Please try again using the Signer.is link provided for ${userMen}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`User ID mismatch from the signed message. Expected ${userId} but got ${signedMessageUserId}. ${userTag} (${userId})`);
+              return;
+            }
+
+            const confirmedSignatory = utils.verifyMessage( decodedSignature.claimed_message, decodedSignature.signed_message ).toLowerCase();
+            const validSignature = confirmedSignatory === decodedSignature.claimed_signatory;
+
+            if (!validSignature) {
+              await interaction.followUp({
+                content: `This is not a valid signature from Signer.is. Please try again using the Signer.is link provided for ${userMen}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`Not a valid signature after verifying the message for ${userTag} (${userId})`);
+              return;
+            }
+
+            // Verify if that wallet address is valid
+            await interaction.editReply({ content: `Verifying wallet address...` });
+            
+            if (!utils.isAddress(decodedSignature.claimed_signatory)) {
+              await interaction.followUp({
+                content: `The included wallet address in your signature (${decodedSignature.claimed_signatory}) is not valid for ${userMen}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`The included wallet address in the signature (${decodedSignature.claimed_signatory}) is not valid for ${userTag} (${userId})`);
+              return;
+            }
+
+            // Mutex on wallet address
+            const uniformedAddress = utils.getAddress(decodedSignature.claimed_signatory);
+
+            if (existingVerificationWalletRequest.get(uniformedAddress) === true) {
+              await interaction.followUp({
+                content: `There is already a pending verification request for this wallet address (${uniformedAddress}). Please wait until that request is completed for ${userMen}.`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`There is already a pending verification request for this wallet address (${uniformedAddress}). Please wait until that request is completed for @${userTag} (${userId}).`);
+              return;
+            } else {
+              existingVerificationWalletRequest.set(uniformedAddress, true);
+            }
+
+            try {
+
+              // Verify if that wallet address is not already associated with another Discord user
+              await interaction.editReply({ content: `Verifying if this wallet address was already used by another Discord user...` });
+
+              const walletAlreadyUsed = await isPassportWalletAlreadyUsed(uniformedAddress);
+
+              if (walletAlreadyUsed) {
+                await interaction.followUp({
+                  content: `This this wallet address (${uniformedAddress}) was already used with a different Discord user. Please try again with a different Gitcoin Passport for ${userMen}.`,
+                  allowedMentions: { parse: ['users'], repliedUser: false }
+                });
+                reject(`This this wallet address (${uniformedAddress}) was already used with a different Discord user. Please try again with a different Gitcoin Passport for @${userTag} (${userId}).`);
+                return;
+              }
+
+              // Verify the associated Gitcoin Passport
+              await interaction.editReply({ content: `Verifying the associated Gitcoin Passport...` });
+
+              let passport: Passport | boolean = false;
+
+              try {
+                const verifier = new PassportVerifier();
+                passport = await verifier.verifyPassport(uniformedAddress);
+              } catch (error) {
+                await interaction.followUp({
+                  content: `We could not verify your Gitcoin Passport (${error}). Please try again later for ${userMen}.`,
+                  allowedMentions: { parse: ['users'], repliedUser: false }
+                });
+                reject(`We could not verify your Gitcoin Passport (${error}). Please try again later for @${userTag} (${userId}).`);
+                return;
+              }
+
+              if (passport === false) {
+                await interaction.followUp({
+                  content: `There is no Gitcoin Passport associated with this wallet address (${uniformedAddress}). Create your Gitcoin Passport first for ${userMen}.`,
+                  allowedMentions: { parse: ['users'], repliedUser: false }
+                });
+                reject(`There is no Gitcoin Passport associated with this wallet address (${uniformedAddress}). Create your Gitcoin Passport first for @${userTag} (${userId}).`);
+                return;
+              }
+
+              // Verify the associated Gitcoin Passport
+              await interaction.editReply({ content: `Computing your Gitcoin Passport score...` });
+
+              let passportScore = 0;
+
+              passport.stamps.forEach(function(stamp) {
+                if (stamp.verified !== true) {
+                  return;
+                }
+
+                const stampId = `${stamp.credential.issuer}:${stamp.provider}`;
+
+                const stampScore = scoringIds.get(stampId)?.score;
+                if (stampScore !== undefined) {
+                  passportScore = passportScore + stampScore;
+                }
+              });
+
+              if (passportScore < passportScoreThreshold) {
+                await interaction.followUp({
+                  content: `Your Gitcoin Passport score is too low (${passportScore} < ${passportScoreThreshold}). Keep adding stamps and try again. Stamps that gives a better proof of your existance usually give a higher score for ${userMen}.`,
+                  allowedMentions: { parse: ['users'], repliedUser: false }
+                });
+                reject(`Your Gitcoin Passport score is too low (${passportScore} < ${passportScoreThreshold}). Keep adding stamps and try again. Stamps that gives a better proof of your existance usually give a higher score for @${userTag} (${userId}).`);
+                return;
+              }
+
+              // Storing the wallet address for associated Gitcoin Passport
+              await interaction.editReply({ content: `Storing your Gitcoin Passport...` });
+
+              await storePassportWallet(uniformedAddress, userId);
+
+              // Assigning the Passport role
+              await interaction.editReply({ content: `Assigning your new role...` });
+
+              await (interaction.member?.roles as GuildMemberRoleManager).add(process.env.PASSPORT_ROLE_ID as string, 'Completed the Gitcoin Passport verification process.');
+
+              await interaction.followUp({
+                content: `You completed the Gitcoin Passport verification process (${passportScore}). You should now have access to everything that is unlocked with this Passport for ${userMen}.`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              
+              resolve();
+
+            } finally {
+              existingVerificationWalletRequest.delete(uniformedAddress);
+            }
+
+          } finally {
+            existingVerificationUserRequest.delete(userId);
+          }
+
+        } else {
+          reject(`Unknown modal submission: ${interaction.customId}`);
         }
 
-        await interaction.reply({ content: 'Building signing URL...', ephemeral: true });
+      });
+    };
 
-        const my_request = { requested_message: `My Discord user ${userTag} (${userId}) has access to this Gitcoin Passport address.` };
-        const url_safe_string = encodeURIComponent( JSON.stringify( my_request ) );
-        const base64_encoded = url_safe_string;
-        const signer_is_url = `https://signer.is/#/sign/${ base64_encoded }`;
+    const handleButtonInteraction = function(interaction: ButtonInteraction) {
+      return new Promise<void>(async (resolve, reject) => {
 
-        /*const row = new ActionRowBuilder()
-          .addComponents(new )
+        const userTag = interaction.user.tag;
+        const userId = interaction.user.id;
+        const userMen = userMention(userId);
 
-        await interaction.editReply({
-          content: 'Sign a message to prove you own a wallet address associated with your Gitcoin Passport.',
-          components: [row]
-        });*/
+        if (interaction.customId === 'sendSignature') {
 
-      }
-    });
+          // Check if the user already has the role.
+          const hasRole = (interaction.member?.roles as GuildMemberRoleManager).cache.find((role) => role.id === process.env.PASSPORT_ROLE_ID) !== undefined;
+          if (hasRole) {
+            await interaction.reply({
+              content: `You already have the role associated with being verified with Gitcoin Passport. No need to verify again for ${userMen}.`,
+            });
+            reject(`User already has Passport verified role. ${userTag} (${userId})`);
+            return;
+          }
+
+          const modal = new ModalBuilder()
+            .setCustomId('ownerVerify')
+            .setTitle('Gitcoin Passport ownership verification');
+
+          const signatureInput = new TextInputBuilder()
+            .setCustomId('signatureInput')
+            .setLabel("Paste your signature URL here.")
+            .setStyle(TextInputStyle.Paragraph);
+
+          const firstActionRow = new ActionRowBuilder<TextInputBuilder>().addComponents(signatureInput);
+          modal.addComponents(firstActionRow);
+
+          await interaction.showModal(modal);
+
+        } else {
+          reject(`Unknown button: ${interaction.customId}`);
+        }
+
+        resolve();
+
+      });
+    };
 
     const discordLogin = function() {
       return new Promise<void>(async (resolve, reject) => {
