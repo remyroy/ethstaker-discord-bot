@@ -22,6 +22,9 @@ const maxTransactionCost = utils.parseUnits("0.01", "ether");
 const validatorDepositCost = utils.parseUnits("32", "ether");
 
 const restrictedRoles = new Set<string>(process.env.ROLE_IDS?.split(','));
+restrictedRoles.add(process.env.PASSPORT_ROLE_ID as string);
+
+const passportScoreThreshold = Number(process.env.PASSPORT_SCORE_THRESHOLD);
 
 const EPOCHS_PER_DAY = 225;
 const MIN_PER_EPOCH_CHURN_LIMIT = 4;
@@ -468,9 +471,10 @@ const main = function() {
             const hasRole = restrictedRoles.size === 0 || (interaction.member?.roles as GuildMemberRoleManager).cache.find((role) => restrictedRoles.has(role.id)) !== undefined;
             if (!hasRole) {
               const brightIdMention = channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
+              const passportVerificationMention = channelMention(process.env.PASSPORT_CHANNEL_ID as string);
 
               await interaction.followUp({
-                content: `You cannot use this command without the correct role. Join ${brightIdMention} to get started for ${userMen}.`,
+                content: `You cannot use this command without the correct role. Join ${brightIdMention} or ${passportVerificationMention} to get started for ${userMen}.`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
               });
               reject(`You cannot use this command without the correct role for @${userTag} (${userId}).`);
@@ -757,6 +761,7 @@ const main = function() {
           }
 
           const brightIdMention = channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
+          const passportMention = channelMention(process.env.PASSPORT_CHANNEL_ID as string);
 
           let targetUser = 'You';
 
@@ -767,7 +772,8 @@ const main = function() {
 
           const msg = (
             `${targetUser} can request Goerli ETH to run a validator on Goerli on ${channelMen}` +
-            ` but first, you will need to be BrightID verified in ${brightIdMention}. Alternatively` +
+            ` but first, you will need to be BrightID verified in ${brightIdMention} or Passport` +
+            ` verified in ${passportMention}. Alternatively` +
             ` you can use these online faucets https://faucetlink.to/goerli for ${userMen}`
             );
           
@@ -790,6 +796,7 @@ const main = function() {
           }
 
           const brightIdMention = channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
+          const passportMention = channelMention(process.env.PASSPORT_CHANNEL_ID as string);
 
           let targetUser = 'You';
 
@@ -800,7 +807,8 @@ const main = function() {
 
           const msg = (
             `${targetUser} can request Ropsten ETH to run a validator on Ropsten on ${channelMen}` +
-            ` but first, you will need to be BrightID verified in ${brightIdMention}. Alternatively` +
+            ` but first, you will need to be BrightID verified in ${brightIdMention} or Passport` +
+            ` verified in ${passportMention}. Alternatively` +
             ` you can use these online faucets https://faucetlink.to/ropsten for ${userMen}`
             );
           
@@ -823,6 +831,7 @@ const main = function() {
           }
 
           const brightIdMention = channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
+          const passportMention = channelMention(process.env.PASSPORT_CHANNEL_ID as string);
 
           let targetUser = 'You';
 
@@ -833,7 +842,8 @@ const main = function() {
 
           const msg = (
             `${targetUser} can request Sepolia ETH to test transactions on the Sepolia testnet on ${channelMen}` +
-            ` but first, you will need to be BrightID verified in ${brightIdMention}. Alternatively` +
+            ` but first, you will need to be BrightID verified in ${brightIdMention} or Passport` +
+            ` verified in ${passportMention}. Alternatively` +
             ` you can use these online faucets https://faucetlink.to/sepolia for ${userMen}`
             );
           
@@ -1206,12 +1216,30 @@ const main = function() {
                 }
               });
 
+              if (passportScore < passportScoreThreshold) {
+                await interaction.followUp({
+                  content: `Your Gitcoin Passport score is too low (${passportScore} < ${passportScoreThreshold}). Keep adding stamps and try again for ${userMen}.`,
+                  allowedMentions: { parse: ['users'], repliedUser: false }
+                });
+                reject(`Your Gitcoin Passport score is too low (${passportScore} < ${passportScoreThreshold}). Keep adding stamps and try again for @${userTag} (${userId}).`);
+                return;
+              }
+
+              // Storing the wallet address for associated Gitcoin Passport
+              await interaction.editReply({ content: `Storing your Gitcoin Passport...` });
+
+              await storePassportWallet(uniformedAddress, userId);
+
+              // Assigning the Passport role
+              await interaction.editReply({ content: `Assigning your new role...` });
+
+              await (interaction.member?.roles as GuildMemberRoleManager).add(process.env.PASSPORT_ROLE_ID as string, 'Completed the Gitcoin Passport verification process.');
+
               await interaction.followUp({
-                content: `Your Gitcoin Passport score is ${passportScore} for ${userMen}.`,
+                content: `You completed the Gitcoin Passport verification process (${passportScore}). You should now have access to everything that is unlocked with this Passport for ${userMen}.`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
               });
-
-              await interaction.editReply({ content: `All done.` });
+              
               resolve();
 
             } finally {
