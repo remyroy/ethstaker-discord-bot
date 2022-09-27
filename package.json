@@ -15,6 +15,7 @@
   "dependencies": {
     "@discordjs/builders": "^1.2.0",
     "@discordjs/rest": "^1.1.0",
+    "@gitcoinco/passport-sdk-types": "^0.2.0",
     "@gitcoinco/passport-sdk-verifier": "../passport-sdk/packages/verifier",
     "axios": "^0.27.2",
     "bufferutil": "^4.0.6",

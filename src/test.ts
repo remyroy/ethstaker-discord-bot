@@ -9,6 +9,8 @@ import {
 import { BigNumber, providers, utils, Wallet } from 'ethers';
 import { Database } from 'sqlite3';
 
+import { Passport } from '@gitcoinco/passport-sdk-types';
+
 import { MessageFlags } from 'discord-api-types/v9';
 import { DateTime, Duration } from 'luxon';
 
@@ -1187,8 +1189,20 @@ const main = function() {
               // Verify the associated Gitcoin Passport
               await interaction.editReply({ content: `Verifying the associated Gitcoin Passport...` });
 
-              const verifier = new PassportVerifier();
-              const passport = await verifier.verifyPassport(uniformedAddress);
+              let passport: Passport | boolean = false;
+
+              try {
+                const verifier = new PassportVerifier();
+                passport = await verifier.verifyPassport(uniformedAddress);
+              } catch (error) {
+                await interaction.followUp({
+                  content: `We could not verify your Gitcoin Passport (${error}). Please try again later for ${userMen}.`,
+                  allowedMentions: { parse: ['users'], repliedUser: false }
+                });
+                reject(`We could not verify your Gitcoin Passport (${error}). Please try again later for @${userTag} (${userId}).`);
+                return;
+              }
+
               if (passport === false) {
                 await interaction.followUp({
                   content: `There is no Gitcoin Passport associated with this wallet address (${uniformedAddress}). Create your Gitcoin Passport first for ${userMen}.`,
@@ -1218,10 +1232,10 @@ const main = function() {
 
               if (passportScore < passportScoreThreshold) {
                 await interaction.followUp({
-                  content: `Your Gitcoin Passport score is too low (${passportScore} < ${passportScoreThreshold}). Keep adding stamps and try again for ${userMen}.`,
+                  content: `Your Gitcoin Passport score is too low (${passportScore} < ${passportScoreThreshold}). Keep adding stamps and try again. Stamps that gives a better proof of your existance usually give a higher score for ${userMen}.`,
                   allowedMentions: { parse: ['users'], repliedUser: false }
                 });
-                reject(`Your Gitcoin Passport score is too low (${passportScore} < ${passportScoreThreshold}). Keep adding stamps and try again for @${userTag} (${userId}).`);
+                reject(`Your Gitcoin Passport score is too low (${passportScore} < ${passportScoreThreshold}). Keep adding stamps and try again. Stamps that gives a better proof of your existance usually give a higher score for @${userTag} (${userId}).`);
                 return;
               }
 
