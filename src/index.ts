@@ -1055,7 +1055,7 @@ const main = function() {
             const signatureRegexMatch = signature.match(/https\:\/\/signer\.is\/#\/verify\/(?<signature>[A-Za-z0-9=]+)/);
             if (signatureRegexMatch === null) {
               await interaction.followUp({
-                content: `This is not a valid signature from Signer.is. Please try again for ${userMen}`,
+                content: `This is not a valid signature from Signer.is. Make sure to paste the full sharable link after signing the message. Clicking the *Copy link* button and pasting the result is the easiest way. Please try again for ${userMen}`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
               });
               reject(`Invalid signature. ${signature} ${userTag} (${userId})`);
@@ -1065,7 +1065,7 @@ const main = function() {
             const encodedSignature = signatureRegexMatch.groups?.signature;
             if (encodedSignature === undefined) {
               await interaction.followUp({
-                content: `Unable to parse signature from Signer.is. Please try again for ${userMen}`,
+                content: `Unable to parse signature from Signer.is. Make sure to paste the full sharable link after signing the message. Clicking the *Copy link* button and pasting the result is the easiest way. Please try again for ${userMen}`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
               });
               reject(`Invalid signature. Unable to parse. ${signature} ${userTag} (${userId})`);
@@ -1078,7 +1078,7 @@ const main = function() {
               signatureElements = JSON.parse(decodeURIComponent(Buffer.from(encodedSignature, 'base64').toString()));
             } catch (error) {
               await interaction.followUp({
-                content: `Unable to parse signature JSON from Signer.is ${error}. Please try again for ${userMen}`,
+                content: `Unable to parse signature JSON from Signer.is ${error}. Make sure to paste the full sharable link after signing the message. Clicking the *Copy link* button and pasting the result is the easiest way. Please try again for ${userMen}`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
               });
               reject(`Invalid signature. Unable to parse JSON. ${signature} ${error} ${userTag} (${userId})`);
@@ -1093,7 +1093,7 @@ const main = function() {
               decodedSignature.signed_message === undefined
               ) {
               await interaction.followUp({
-                content: `Unexpected structure in signature. Please try again for ${userMen}`,
+                content: `Unexpected structure in signature. Are you trying to meddle with the bot? Please try again for ${userMen}`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
               });
               reject(`Unexpected structure in signature. ${signatureElements} ${userTag} (${userId})`);
