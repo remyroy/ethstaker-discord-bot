@@ -7,7 +7,7 @@ import {
   TextInputStyle, ActionRowBuilder, ModalSubmitInteraction,
   CommandInteraction, ButtonBuilder, ButtonInteraction, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { BigNumber, providers, utils, Wallet } from 'ethers';
-import { Database, RunResult, Statement } from 'sqlite3';
+import { Database, RunResult } from 'sqlite3';
 
 import { Passport } from '@gitcoinco/passport-sdk-types';
 
@@ -293,7 +293,7 @@ const main = function() {
 
     const isPassportWalletAlreadyUsed = function(walletAddress: string) {
       return new Promise<boolean>(async (resolve, reject) => {
-        db.get(`SELECT walletAddress from passport WHERE walletAddress = ?;`, walletAddress, (stat: Statement, error: Error | null, row: any ) => {
+        db.get(`SELECT walletAddress from passport WHERE walletAddress = ?;`, walletAddress, (error: Error | null, row: any ) => {
           if (error !== null) {
             reject(error);
             return;
@@ -303,7 +303,6 @@ const main = function() {
           } else {
             resolve(true);
           }
-          stat.finalize();
         });
       });
     };
@@ -328,7 +327,7 @@ const main = function() {
 
     const isStampAlreadyUsed = function(sHash: stampHash) {
       return new Promise<boolean>(async (resolve, reject) => {
-        db.get(`SELECT provider, hash from passport_stamp WHERE provider = ? AND hash = ?;`, sHash.provider, sHash.hash, (stat: Statement, error: Error | null, row: any ) => {
+        db.get(`SELECT provider, hash from passport_stamp WHERE provider = ? AND hash = ?;`, sHash.provider, sHash.hash, (error: Error | null, row: any ) => {
           if (error !== null) {
             reject(error);
             return;
@@ -338,7 +337,6 @@ const main = function() {
           } else {
             resolve(true);
           }
-          stat.finalize();
         });
       });
     };
@@ -371,7 +369,7 @@ const main = function() {
 
     const getLastRequest = function(userId: string, tableName: string) {
       return new Promise<lastRequest | null>(async (resolve, reject) => {
-        db.get(`SELECT lastRequested, lastAddress from ${tableName} WHERE userId = ?;`, userId, (stat: Statement, error: Error | null, row: any ) => {
+        db.get(`SELECT lastRequested, lastAddress from ${tableName} WHERE userId = ?;`, userId, (error: Error | null, row: any ) => {
           if (error !== null) {
             reject(error);
             return;
@@ -382,7 +380,6 @@ const main = function() {
             const value = row as lastRequest;
             resolve(value);
           }
-          stat.finalize();
         });
       });
     };
@@ -391,7 +388,7 @@ const main = function() {
       return new Promise<void>(async (resolve, reject) => {
         db.serialize(() => {
           let doInsert = true;
-          db.get(`SELECT lastRequested, lastAddress from ${tableName} WHERE userId = ?;`, userId, (stat: Statement, error: Error | null, row: any ) => {
+          db.get(`SELECT lastRequested, lastAddress from ${tableName} WHERE userId = ?;`, userId, (error: Error | null, row: any ) => {
             if (error !== null) {
               reject(error);
               return;
@@ -399,7 +396,6 @@ const main = function() {
             if (row !== undefined) {
               doInsert = false;
             }
-            stat.finalize();
 
             const lastRequested = Math.floor(DateTime.utc().toMillis() / 1000);
             if (doInsert) {
