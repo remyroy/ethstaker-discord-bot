@@ -360,6 +360,7 @@ const main = function() {
           }
           db.run(`INSERT INTO passport_stamp (passport, provider, hash) VALUES${valuesTemplate};`, ...values, (result: RunResult, error: Error | null) => {
             if (error !== null) {
+              console.log(error);
               reject(error);
             }
             resolve(true);
@@ -1342,14 +1343,19 @@ const main = function() {
               const passportId = await storePassportWallet(uniformedAddress, userId);
 
               // Store stamps for next deduplication
-              await storeStamps(passportId, stampHashes);
-
-              await interaction.followUp({
-                content: `You completed the Gitcoin Passport verification process (${passportScore}).${dupStampMessage} You should now have access to everything that is unlocked with this Passport for ${userMen}.`,
-                allowedMentions: { parse: ['users'], repliedUser: false }
+              storeStamps(passportId, stampHashes).then(async (value) => {
+                if (value) {
+                  await interaction.followUp({
+                    content: `You completed the Gitcoin Passport verification process (${passportScore}).${dupStampMessage} You should now have access to everything that is unlocked with this Passport for ${userMen}.`,
+                    allowedMentions: { parse: ['users'], repliedUser: false }
+                  });
+                  resolve();
+                }
+              }).catch((reason) => {
+                console.log('Could not store Stamps.');
+                console.log(reason);
+                reject(reason);
               });
-              
-              resolve();
 
             } finally {
               existingVerificationWalletRequest.delete(uniformedAddress);
