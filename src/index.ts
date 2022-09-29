@@ -310,12 +310,13 @@ const main = function() {
     const storePassportWallet = function(walletAddress: string, userId: string) {
       return new Promise<number>(async (resolve, reject) => {
         db.serialize(() => {
-          db.run(`INSERT INTO passport(walletAddress, userId) VALUES(?, ?);`, walletAddress, userId, (result: RunResult, error: Error | null) => {
+          const callback = function (this: RunResult, error: Error | null) {
             if (error !== null) {
               reject(error);
             }
-            resolve(result.lastID);
-          });
+            resolve(this.lastID);
+          };
+          db.run(`INSERT INTO passport(walletAddress, userId) VALUES(?, ?);`, walletAddress, userId, callback);
         });
       });
     };
