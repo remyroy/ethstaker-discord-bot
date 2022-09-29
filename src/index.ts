@@ -7,7 +7,7 @@ import {
   TextInputStyle, ActionRowBuilder, ModalSubmitInteraction,
   CommandInteraction, ButtonBuilder, ButtonInteraction, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { BigNumber, providers, utils, Wallet } from 'ethers';
-import { Database } from 'sqlite3';
+import { Database, RunResult, Statement } from 'sqlite3';
 
 import { Passport } from '@gitcoinco/passport-sdk-types';
 
@@ -199,6 +199,20 @@ const main = function() {
             }
           });
 
+          db.run(`CREATE TABLE IF NOT EXISTS passport_stamp (passport INTEGER NOT NULL, provider TEXT NOT NULL, hash TEXT NOT NULL);`, (error: Error | null) => {
+            if (error !== null) {
+              reject(error);
+              return;
+            }
+          });
+
+          db.run(`CREATE UNIQUE INDEX IF NOT EXISTS passport_stamp_provider_hash on passport_stamp ( provider, hash );`, (error: Error | null) => {
+            if (error !== null) {
+              reject(error);
+              return;
+            }
+          });
+
           let index = 0;
           faucetCommandsConfig.forEach((config, key, map) => {
             const tableName = config.requestTable;
@@ -242,10 +256,13 @@ const main = function() {
                     resolve();
                   }
                 });
-              } else if (lastOne) {
-                resolve();
+              } else {
+                if (lastOne) {
+                  resolve();
+                }
               }
             });
+            
             index = index + 1;
           });
         });
@@ -276,27 +293,77 @@ const main = function() {
 
     const isPassportWalletAlreadyUsed = function(walletAddress: string) {
       return new Promise<boolean>(async (resolve, reject) => {
-        db.get(`SELECT walletAddress from passport WHERE walletAddress = ?;`, walletAddress, (error: Error | null, row: any ) => {
+        db.get(`SELECT walletAddress from passport WHERE walletAddress = ?;`, walletAddress, (stat: Statement, error: Error | null, row: any ) => {
           if (error !== null) {
             reject(error);
+            return;
           }
           if (row === undefined) {
             resolve(false);
           } else {
             resolve(true);
           }
+          stat.finalize();
         });
       });
     };
 
     const storePassportWallet = function(walletAddress: string, userId: string) {
-      return new Promise<void>(async (resolve, reject) => {
+      return new Promise<number>(async (resolve, reject) => {
         db.serialize(() => {
-          db.run(`INSERT INTO passport(walletAddress, userId) VALUES(?, ?);`, walletAddress, userId, (error: Error | null) => {
+          db.run(`INSERT INTO passport(walletAddress, userId) VALUES(?, ?);`, walletAddress, userId, (result: RunResult, error: Error | null) => {
             if (error !== null) {
               reject(error);
             }
-            resolve();
+            resolve(result.lastID);
+          });
+        });
+      });
+    };
+
+    interface stampHash {
+      provider: string,
+      hash: string
+    };
+
+    const isStampAlreadyUsed = function(sHash: stampHash) {
+      return new Promise<boolean>(async (resolve, reject) => {
+        db.get(`SELECT provider, hash from passport_stamp WHERE provider = ? AND hash = ?;`, sHash.provider, sHash.hash, (stat: Statement, error: Error | null, row: any ) => {
+          if (error !== null) {
+            reject(error);
+            return;
+          }
+          if (row === undefined) {
+            resolve(false);
+          } else {
+            resolve(true);
+          }
+          stat.finalize();
+        });
+      });
+    };
+
+    const storeStamps = function(passportId: number, sHashes: Array<stampHash>) {
+      return new Promise<boolean>(async (resolve, reject) => {
+        db.serialize(() => {
+          if (sHashes.length <= 0) {
+            resolve(false);
+            return;
+          }
+          const templateArray = Array<string>(sHashes.length).fill('(?, ?, ?)');
+          const valuesTemplate = templateArray.join(',');
+
+          const values = Array<any>();
+          for (const stamp of sHashes) {
+            values.push(passportId);
+            values.push(stamp.provider);
+            values.push(stamp.hash);
+          }
+          db.run(`INSERT INTO passport_stamp (passport, provider, hash) VALUES${valuesTemplate};`, ...values, (result: RunResult, error: Error | null) => {
+            if (error !== null) {
+              reject(error);
+            }
+            resolve(true);
           });
         });
       });
@@ -304,9 +371,10 @@ const main = function() {
 
     const getLastRequest = function(userId: string, tableName: string) {
       return new Promise<lastRequest | null>(async (resolve, reject) => {
-        db.get(`SELECT lastRequested, lastAddress from ${tableName} WHERE userId = ?;`, userId, (error: Error | null, row: any ) => {
+        db.get(`SELECT lastRequested, lastAddress from ${tableName} WHERE userId = ?;`, userId, (stat: Statement, error: Error | null, row: any ) => {
           if (error !== null) {
             reject(error);
+            return;
           }
           if (row === undefined) {
             resolve(null);
@@ -314,6 +382,7 @@ const main = function() {
             const value = row as lastRequest;
             resolve(value);
           }
+          stat.finalize();
         });
       });
     };
@@ -322,19 +391,22 @@ const main = function() {
       return new Promise<void>(async (resolve, reject) => {
         db.serialize(() => {
           let doInsert = true;
-          db.get(`SELECT lastRequested, lastAddress from ${tableName} WHERE userId = ?;`, userId, (error: Error | null, row: any ) => {
+          db.get(`SELECT lastRequested, lastAddress from ${tableName} WHERE userId = ?;`, userId, (stat: Statement, error: Error | null, row: any ) => {
             if (error !== null) {
               reject(error);
+              return;
             }
             if (row !== undefined) {
               doInsert = false;
             }
+            stat.finalize();
 
             const lastRequested = Math.floor(DateTime.utc().toMillis() / 1000);
             if (doInsert) {
               db.run(`INSERT INTO ${tableName}(userId, lastRequested, lastAddress) VALUES(?, ?, ?);`, userId, lastRequested, address, (error: Error | null) => {
                 if (error !== null) {
                   reject(error);
+                  return;
                 }
                 resolve();
               });
@@ -342,6 +414,7 @@ const main = function() {
               db.run(`UPDATE ${tableName} SET lastRequested = ?, lastAddress = ? WHERE userId = ?;`, lastRequested, address, userId, (error: Error | null) => {
                 if (error !== null) {
                   reject(error);
+                  return;
                 }
                 resolve();
               });
@@ -1216,9 +1289,14 @@ const main = function() {
               await interaction.editReply({ content: `Computing your Gitcoin Passport score...` });
 
               let passportScore = 0;
+              let dupStamps = 0;
+              const stampHashes = new Array<stampHash>();
 
-              passport.stamps.forEach(function(stamp) {
+              for (const stamp of passport.stamps) {
                 if (stamp.verified !== true) {
+                  return;
+                }
+                if (stamp.credential.credentialSubject.hash === undefined) {
                   return;
                 }
 
@@ -1226,16 +1304,33 @@ const main = function() {
 
                 const stampScore = scoringIds.get(stampId)?.score;
                 if (stampScore !== undefined) {
-                  passportScore = passportScore + stampScore;
+                  const sHash: stampHash = {
+                    provider: stamp.provider,
+                    hash: stamp.credential.credentialSubject.hash
+                  };
+
+                  // Dedupe stamp across passports
+                  const isDupStamp = await isStampAlreadyUsed(sHash);
+                  if (isDupStamp) {
+                    dupStamps = dupStamps + 1;
+                  } else {
+                    passportScore = passportScore + stampScore;
+                    stampHashes.push(sHash);
+                  }
                 }
-              });
+              }
+
+              let dupStampMessage = '';
+              if (dupStamps > 0) {
+                dupStampMessage = ` We ignored ${dupStamps} duplicate stamps.`;
+              }
 
               if (passportScore < passportScoreThreshold) {
                 await interaction.followUp({
-                  content: `Your Gitcoin Passport score is too low (${passportScore} < ${passportScoreThreshold}). Keep adding stamps and try again. Stamps that give a better proof of your existance usually give a higher score for ${userMen}.`,
+                  content: `Your Gitcoin Passport score is too low (${passportScore} < ${passportScoreThreshold}).${dupStampMessage} Keep adding stamps and try again. Stamps that give a better proof of your existance usually give a higher score for ${userMen}.`,
                   allowedMentions: { parse: ['users'], repliedUser: false }
                 });
-                reject(`Your Gitcoin Passport score is too low (${passportScore} < ${passportScoreThreshold}). Keep adding stamps and try again. Stamps that give a better proof of your existance usually give a higher score for @${userTag} (${userId}).`);
+                reject(`Your Gitcoin Passport score is too low (${passportScore} < ${passportScoreThreshold}).${dupStampMessage} Keep adding stamps and try again. Stamps that give a better proof of your existance usually give a higher score for @${userTag} (${userId}).`);
                 return;
               }
 
@@ -1247,10 +1342,13 @@ const main = function() {
               // Storing the wallet address for associated Gitcoin Passport
               await interaction.editReply({ content: `Storing your Gitcoin Passport...` });
 
-              await storePassportWallet(uniformedAddress, userId);
+              const passportId = await storePassportWallet(uniformedAddress, userId);
+
+              // Store stamps for next deduplication
+              await storeStamps(passportId, stampHashes);
 
               await interaction.followUp({
-                content: `You completed the Gitcoin Passport verification process (${passportScore}). You should now have access to everything that is unlocked with this Passport for ${userMen}.`,
+                content: `You completed the Gitcoin Passport verification process (${passportScore}).${dupStampMessage} You should now have access to everything that is unlocked with this Passport for ${userMen}.`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
               });
               
@@ -1581,7 +1679,7 @@ const main = function() {
       }
     }
 
-    let bnEvents = new EventSource(bnEventsUrl);
+    /*let bnEvents = new EventSource(bnEventsUrl);
 
     const headEventReceived = async function(evt: MessageEvent<any>) {
       const eventData = JSON.parse(evt.data) as headEvent;
@@ -1695,7 +1793,7 @@ const main = function() {
     };
 
     bnEvents.addEventListener('head', headEventReceived);
-    bnEvents.onerror = headEventError;
+    bnEvents.onerror = headEventError;*/
 
   });
 };
