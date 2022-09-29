@@ -1352,8 +1352,6 @@ const main = function() {
                   resolve();
                 }
               }).catch((reason) => {
-                console.log('Could not store Stamps.');
-                console.log(reason);
                 reject(reason);
               });
 
