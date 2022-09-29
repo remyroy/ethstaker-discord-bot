@@ -1679,7 +1679,7 @@ const main = function() {
       }
     }
 
-    /*let bnEvents = new EventSource(bnEventsUrl);
+    let bnEvents = new EventSource(bnEventsUrl);
 
     const headEventReceived = async function(evt: MessageEvent<any>) {
       const eventData = JSON.parse(evt.data) as headEvent;
@@ -1793,7 +1793,7 @@ const main = function() {
     };
 
     bnEvents.addEventListener('head', headEventReceived);
-    bnEvents.onerror = headEventError;*/
+    bnEvents.onerror = headEventError;
 
   });
 };
