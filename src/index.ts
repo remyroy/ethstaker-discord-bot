@@ -358,13 +358,13 @@ const main = function() {
             values.push(stamp.provider);
             values.push(stamp.hash);
           }
-          db.run(`INSERT INTO passport_stamp (passport, provider, hash) VALUES${valuesTemplate};`, ...values, (result: RunResult, error: Error | null) => {
+          const callback = function(this: RunResult, error: Error | null) {
             if (error !== null) {
-              console.log(error);
               reject(error);
             }
             resolve(true);
-          });
+          };
+          db.run(`INSERT INTO passport_stamp (passport, provider, hash) VALUES${valuesTemplate};`, ...values, callback);
         });
       });
     };
