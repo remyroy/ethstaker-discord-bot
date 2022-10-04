@@ -6,7 +6,7 @@ import {
   GuildMemberRoleManager, TextChannel, ModalBuilder, TextInputBuilder,
   TextInputStyle, ActionRowBuilder, ModalSubmitInteraction,
   CommandInteraction, ButtonBuilder, ButtonInteraction, ButtonStyle, EmbedBuilder } from 'discord.js';
-import { BigNumber, ethers, providers, utils, Wallet } from 'ethers';
+import { BigNumber, providers, utils, Wallet, Contract } from 'ethers';
 import { Database, RunResult } from 'sqlite3';
 
 import { Passport } from '@gitcoinco/passport-sdk-types';
@@ -1687,15 +1687,37 @@ const main = function() {
                 });
               }
 
-              // TODO: Send tokens to user
+              // Send tokens to user
+              await interaction.editReply({ content: `Whitelisting the wallet address for ${cheapDepositCount} cheap deposits...` });
 
-              // TODO: Top up user wallet
+              const depositProxyContract = new Contract(depositProxyContractAddress, depositProxyContractAbi, goerliWallet);
+              await depositProxyContract.safeTransferFrom(
+                goerliWallet.address, uniformedAddress, 0, cheapDepositCount, Buffer.from(''));
+
+              // Top up user wallet
+              await interaction.editReply({ content: `Ensuring you have enough funds in that wallet for the ${cheapDepositCount} cheap deposits...` });
+
+              const targetWalletBalance = cheapDepositCost.mul(cheapDepositCount).add(maxTransactionCost.mul(cheapDepositCount));
+              const currentWalletBalance = await goerliProvider.getBalance(uniformedAddress);
+
+              if (targetWalletBalance.gte(currentWalletBalance)) {
+                const sendingAmount = targetBalance.sub(currentContractBalance);
+
+                const transaction = await goerliWallet.sendTransaction({
+                  to: depositProxyContractAddress,
+                  value: sendingAmount
+                });
+              }
 
               // Storing the wallet address for the cheap deposits
               await interaction.editReply({ content: `Storing your wallet address...` });
 
               await storeCheapDeposits(uniformedAddress, userId);
 
+              await interaction.followUp({
+                content: `You can now perform ${cheapDepositCount} cheap deposits on <https://goerli.launchpad.ethstaker.cc/> with your wallet address ${uniformedAddress} for ${userMen}.`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
               resolve();
 
             } finally {
