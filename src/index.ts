@@ -20,7 +20,10 @@ import seedrandom from 'seedrandom';
 
 const db = new Database('db.sqlite');
 const quickNewRequest = Duration.fromObject({ days: 1 });
-const maxTransactionCost = utils.parseUnits("0.01", "ether");
+const maxTransactionCost = utils.parseUnits("0.00005", "ether");
+const cheapDepositCost = utils.parseUnits("0.0001", "ether");
+const cheapDepositCount = 2;
+const minRelativeCheapDepositCount = 4;
 const validatorDepositCost = utils.parseUnits("32", "ether");
 
 const restrictedRoles = new Set<string>(process.env.ROLE_IDS?.split(','));
