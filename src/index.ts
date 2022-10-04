@@ -850,7 +850,7 @@ const main = function() {
 
           const msg = (
             `EthStaker is offering 3 ways to perform your Goerli validator deposit for ${targetUser}:\n` +
-            `1. Get some cheap Goerli deposits on ${cheapGoerliValidatorMention} with the ` +
+            `1. Get some cheap Goerli validator deposits on ${cheapGoerliValidatorMention} with the ` +
             `\`/cheap-goerli-deposit\` slash command. (No verification needed)\n` +
             `2. Let our bot do the deposit for you in ${fundGoerliValidatorMention} with the ` +
             `\`!fundValidator\` text command. (${brightIdVerificationMention} or ${passportVerificationMention} required)\n` +
