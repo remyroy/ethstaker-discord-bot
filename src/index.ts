@@ -6,7 +6,7 @@ import {
   GuildMemberRoleManager, TextChannel, ModalBuilder, TextInputBuilder,
   TextInputStyle, ActionRowBuilder, ModalSubmitInteraction,
   CommandInteraction, ButtonBuilder, ButtonInteraction, ButtonStyle, EmbedBuilder } from 'discord.js';
-import { BigNumber, providers, utils, Wallet } from 'ethers';
+import { BigNumber, ethers, providers, utils, Wallet } from 'ethers';
 import { Database, RunResult } from 'sqlite3';
 
 import { Passport } from '@gitcoinco/passport-sdk-types';
@@ -34,6 +34,12 @@ const passportScoreThreshold = Number(process.env.PASSPORT_SCORE_THRESHOLD);
 const EPOCHS_PER_DAY = 225;
 const MIN_PER_EPOCH_CHURN_LIMIT = 4;
 const CHURN_LIMIT_QUOTIENT = 65536;
+
+const depositProxyContractAddress = process.env.PROXY_GOERLI_DEPOSIT_CONTRACT as string;
+const depositProxyContractAbi = [
+  "function balanceOf(address,uint256)",
+  "function safeTransferFrom(address,address,uint256,uint256,bytes)",
+];
 
 interface networkConfig {
   network: string;
@@ -96,6 +102,8 @@ const main = function() {
     // Configuring the faucet commands
     const faucetCommandsConfig = new Map<string, networkConfig>();
 
+    const goerliWallet = new Wallet(process.env.FAUCET_PRIVATE_KEY as string, goerliProvider);
+
     faucetCommandsConfig.set('request-goeth', {
       network: 'Goerli',
       currency: 'GoETH',
@@ -108,7 +116,7 @@ const main = function() {
       existingRequest: new Map<string, boolean>(),
       minEthers: validatorDepositCost.add(maxTransactionCost.mul(2)),
       requestAmount: validatorDepositCost.add(maxTransactionCost),
-      wallet: new Wallet(process.env.FAUCET_PRIVATE_KEY as string, goerliProvider),
+      wallet: goerliWallet,
       provider: goerliProvider,
     });
 
@@ -216,6 +224,27 @@ const main = function() {
             }
           });
 
+          db.run(`CREATE TABLE IF NOT EXISTS cheap_deposit (walletAddress TEXT UNIQUE NOT NULL, userId TEXT UNIQUE NOT NULL, lastRequested INTEGER NOT NULL);`, (error: Error | null) => {
+            if (error !== null) {
+              reject(error);
+              return;
+            }
+          });
+
+          db.run(`CREATE UNIQUE INDEX IF NOT EXISTS cheap_deposit_walletAddress on passport ( walletAddress );`, (error: Error | null) => {
+            if (error !== null) {
+              reject(error);
+              return;
+            }
+          });
+
+          db.run(`CREATE UNIQUE INDEX IF NOT EXISTS cheap_deposit_userId on passport ( userId );`, (error: Error | null) => {
+            if (error !== null) {
+              reject(error);
+              return;
+            }
+          });
+
           let index = 0;
           faucetCommandsConfig.forEach((config, key, map) => {
             const tableName = config.requestTable;
@@ -293,6 +322,53 @@ const main = function() {
     let currentParticipationRateEpoch: number | null = null;
     let currentParticipationRateDate: number | null = null;
     const twoThird = 2 / 3;
+
+    const isCheapDepositsUserAlreadyUsed = function(userId: string) {
+      return new Promise<boolean>(async (resolve, reject) => {
+        db.get(`SELECT userId from cheap_deposit WHERE userId = ?;`, userId, (error: Error | null, row: any ) => {
+          if (error !== null) {
+            reject(error);
+            return;
+          }
+          if (row === undefined) {
+            resolve(false);
+          } else {
+            resolve(true);
+          }
+        });
+      });
+    }
+
+    const isCheapDepositsWalletAlreadyUsed = function(walletAddress: string) {
+      return new Promise<boolean>(async (resolve, reject) => {
+        db.get(`SELECT walletAddress from cheap_deposit WHERE walletAddress = ?;`, walletAddress, (error: Error | null, row: any ) => {
+          if (error !== null) {
+            reject(error);
+            return;
+          }
+          if (row === undefined) {
+            resolve(false);
+          } else {
+            resolve(true);
+          }
+        });
+      });
+    }
+
+    const storeCheapDeposits = function(walletAddress: string, userId: string) {
+      return new Promise<void>(async (resolve, reject) => {
+        db.serialize(() => {
+          const callback = function (this: RunResult, error: Error | null) {
+            if (error !== null) {
+              reject(error);
+            }
+            resolve();
+          };
+          const lastRequested = Math.floor(DateTime.utc().toMillis() / 1000);
+          db.run(`INSERT INTO cheap_deposit(walletAddress, userId, lastRequested) VALUES(?, ?, ?);`, walletAddress, userId, lastRequested, callback);
+        });
+      });
+    };
 
     const isPassportWalletAlreadyUsed = function(walletAddress: string) {
       return new Promise<boolean>(async (resolve, reject) => {
@@ -993,6 +1069,59 @@ const main = function() {
             ephemeral: true
           });
 
+        } else if (commandName === 'cheap-goerli-deposit') {
+          console.log(`${commandName} from ${userTag} (${userId})`);
+
+          // Restrict command to channel
+          const restrictChannel = interaction.guild?.channels.cache.find((channel) => channel.id === process.env.CHEAP_GOERLI_VALIDATOR_CHANNEL_ID);
+          if (restrictChannel !== undefined) {
+            if (interaction.channelId !== restrictChannel.id) {
+              const channelMen = channelMention(restrictChannel.id);
+              await interaction.reply({
+                content: `This is the wrong channel for this bot command (${commandName}). You should try in ${channelMen} for ${userMen}.`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`This is the wrong channel for this bot command (${commandName}). You should try in #${restrictChannel.name} for @${userTag} (${userId}).`);
+              return;
+            }
+          }
+
+          // Check if the user already has been given cheap deposits.
+          const hasCheapDeposits = await isCheapDepositsUserAlreadyUsed(userId);
+          if (hasCheapDeposits) {
+            await interaction.reply({
+              content: `You already received your cheap deposits. We cannot provide you with more at this time for ${userMen}.`,
+            });
+            reject(`You already received your cheap deposits. We cannot provide you with more at this time for ${userTag} (${userId})`);
+            return;
+          }
+
+          const my_request = { requested_message: `My Discord user ${userTag} (${userId}) has access to this wallet address.` };
+          const url_safe_string = encodeURIComponent( JSON.stringify( my_request ) );
+          const base64_encoded = Buffer.from(url_safe_string).toString('base64').replace('+', '-').replace('/', '_').replace(/=+$/, '');
+          const signer_is_url = `https://signer.is/#/sign/${ base64_encoded }`;
+
+          const row = new ActionRowBuilder<ButtonBuilder>()
+            .addComponents(new ButtonBuilder()
+              .setCustomId('sendSignatureForCheapDeposits')
+              .setStyle(ButtonStyle.Primary)
+              .setLabel('Enter Signature'));
+
+          const signerEmbed = new EmbedBuilder()
+            .setTitle('Signer.is')
+            .setURL(signer_is_url)
+            .setDescription('Prove your wallet address ownership here.');
+
+          await interaction.reply({
+            content: `Sign the message on Signer.is with the wallet address you want ` +
+                     `to use to perform your deposit on Goerli to prove ` +
+                     `ownership, click the *Copy Link* button on Signer.is ` +
+                     `and click the **Enter Signature** button to paste your signature URL.`,
+            components: [row],
+            embeds: [signerEmbed],
+            ephemeral: true
+          });
+
         } else {
           reject(`Unknown command: ${commandName}`);
         }
@@ -1007,6 +1136,9 @@ const main = function() {
       signed_message: string,
       claimed_signatory: string
     }
+
+    const existingCheapDepositsUserRequest = new Map<string, boolean>();
+    const existingCheapDepositsWalletRequest = new Map<string, boolean>();
 
     const existingVerificationUserRequest = new Map<string, boolean>();
     const existingVerificationWalletRequest = new Map<string, boolean>();
@@ -1372,6 +1504,208 @@ const main = function() {
             existingVerificationUserRequest.delete(userId);
           }
 
+        } else if (interaction.customId === 'ownerCheapDepositsVerify') {
+
+          // Check if the user already has been given cheap deposits.
+          const hasCheapDeposits = await isCheapDepositsUserAlreadyUsed(userId);
+          if (hasCheapDeposits) {
+            await interaction.reply({
+              content: `You already received your cheap deposits. We cannot provide you with more at this time for ${userMen}.`,
+            });
+            reject(`You already received your cheap deposits. We cannot provide you with more at this time for ${userTag} (${userId})`);
+            return;
+          }
+
+          // Mutex on User ID
+          if (existingCheapDepositsUserRequest.get(userId) === true) {
+            await interaction.reply({
+              content: `You already have a pending cheap deposits request. Please wait until your request is completed for ${userMen}.`,
+              allowedMentions: { parse: ['users'], repliedUser: false }
+            });
+            reject(`You already have a pending cheap deposits request. Please wait until your request is completed for @${userTag} (${userId}).`);
+            return;
+          } else {
+            existingCheapDepositsUserRequest.set(userId, true);
+          }
+
+          try {
+
+            const signature = interaction.fields.getTextInputValue('signatureInput');
+
+            // Validate signature
+            await interaction.reply({ content: `Validating signature...`, ephemeral: true});
+            
+            const signatureRegexMatch = signature.match(/https\:\/\/signer\.is\/#\/verify\/(?<signature>[A-Za-z0-9=]+)/);
+            if (signatureRegexMatch === null) {
+              await interaction.followUp({
+                content: `This is not a valid signature from Signer.is. Make sure to paste the full sharable link after signing the message. Clicking the *Copy link* button and pasting the result is the easiest way. Please try again for ${userMen}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`Invalid signature. ${signature} ${userTag} (${userId})`);
+              return;
+            }
+
+            const encodedSignature = signatureRegexMatch.groups?.signature;
+            if (encodedSignature === undefined) {
+              await interaction.followUp({
+                content: `Unable to parse signature from Signer.is. Make sure to paste the full sharable link after signing the message. Clicking the *Copy link* button and pasting the result is the easiest way. Please try again for ${userMen}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`Invalid signature. Unable to parse. ${signature} ${userTag} (${userId})`);
+              return;
+            }
+
+            // Decode signature
+            let signatureElements: any | null = null;
+            try {
+              signatureElements = JSON.parse(decodeURIComponent(Buffer.from(encodedSignature, 'base64').toString()));
+            } catch (error) {
+              await interaction.followUp({
+                content: `Unable to parse signature JSON from Signer.is ${error}. Make sure to paste the full sharable link after signing the message. Clicking the *Copy link* button and pasting the result is the easiest way. Please try again for ${userMen}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`Invalid signature. Unable to parse JSON. ${signature} ${error} ${userTag} (${userId})`);
+              return;
+            }
+              
+            const decodedSignature = signatureElements as signatureStructure;
+
+            if (
+              decodedSignature.claimed_message === undefined ||
+              decodedSignature.claimed_signatory === undefined ||
+              decodedSignature.signed_message === undefined
+              ) {
+              await interaction.followUp({
+                content: `Unexpected structure in signature. Are you trying to meddle with the bot? Please try again for ${userMen}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`Unexpected structure in signature. ${signatureElements} ${userTag} (${userId})`);
+              return;
+            }
+
+            // Validate signed message
+            await interaction.editReply({ content: `Verifying signed message...` });
+
+            const messageRegexMatch = decodedSignature.claimed_message.match(/My Discord user .+? \((?<userId>[^\)]+)\) has access to this wallet address\./);
+            if (messageRegexMatch === null) {
+              await interaction.followUp({
+                content: `The signature does not contain the correct signed message. Please try again using the Signer.is link provided for ${userMen}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`Invalid signed message. ${decodedSignature.claimed_message} ${userTag} (${userId})`);
+              return;
+            }
+
+            const signedMessageUserId = messageRegexMatch.groups?.userId;
+            if (signedMessageUserId === undefined) {
+              await interaction.followUp({
+                content: `Unable to parse signed message from Signer.is. Please try again for ${userMen}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`Invalid signed message. Unable to parse. ${decodedSignature.claimed_message} ${userTag} (${userId})`);
+              return;
+            }
+
+            if (signedMessageUserId !== userId) {
+              await interaction.followUp({
+                content: `The user ID included in the signed message does not match your Discord user ID. Please try again using the Signer.is link provided for ${userMen}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`User ID mismatch from the signed message. Expected ${userId} but got ${signedMessageUserId}. ${userTag} (${userId})`);
+              return;
+            }
+
+            const confirmedSignatory = utils.verifyMessage( decodedSignature.claimed_message, decodedSignature.signed_message ).toLowerCase();
+            const validSignature = confirmedSignatory === decodedSignature.claimed_signatory;
+
+            if (!validSignature) {
+              await interaction.followUp({
+                content: `This is not a valid signature from Signer.is. Please try again using the Signer.is link provided for ${userMen}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`Not a valid signature after verifying the message for ${userTag} (${userId})`);
+              return;
+            }
+
+            // Verify if that wallet address is valid
+            await interaction.editReply({ content: `Verifying wallet address...` });
+            
+            if (!utils.isAddress(decodedSignature.claimed_signatory)) {
+              await interaction.followUp({
+                content: `The included wallet address in your signature (${decodedSignature.claimed_signatory}) is not valid for ${userMen}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`The included wallet address in the signature (${decodedSignature.claimed_signatory}) is not valid for ${userTag} (${userId})`);
+              return;
+            }
+
+            // Mutex on wallet address
+            const uniformedAddress = utils.getAddress(decodedSignature.claimed_signatory);
+
+            if (existingCheapDepositsWalletRequest.get(uniformedAddress) === true) {
+              await interaction.followUp({
+                content: `There is already a pending cheap deposits request for this wallet address (${uniformedAddress}). Please wait until that request is completed for ${userMen}.`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`There is already a pending cheap deposits request for this wallet address (${uniformedAddress}). Please wait until that request is completed for @${userTag} (${userId}).`);
+              return;
+            } else {
+              existingCheapDepositsWalletRequest.set(uniformedAddress, true);
+            }
+
+            try {
+
+              // Verify if that wallet address is not already associated with another Discord user
+              await interaction.editReply({ content: `Verifying if this wallet address was already used by another Discord user...` });
+
+              const walletAlreadyUsed = await isCheapDepositsWalletAlreadyUsed(uniformedAddress);
+
+              if (walletAlreadyUsed) {
+                await interaction.followUp({
+                  content: `This this wallet address (${uniformedAddress}) was already used with a different Discord user. Please try again with a different wallet address for ${userMen}.`,
+                  allowedMentions: { parse: ['users'], repliedUser: false }
+                });
+                reject(`This this wallet address (${uniformedAddress}) was already used with a different Discord user. Please try again with a different wallet address for @${userTag} (${userId}).`);
+                return;
+              }
+
+              // Top up the proxy contract
+              await interaction.editReply({ content: `Ensuring there is enough funds on our contract...` });
+
+              const targetMultiplier = minRelativeCheapDepositCount * cheapDepositCount;
+
+              const targetBalance = validatorDepositCost.mul(targetMultiplier).add(
+                maxTransactionCost.mul(targetMultiplier));
+              const currentContractBalance = await goerliProvider.getBalance(depositProxyContractAddress);
+
+              if (targetBalance.gte(currentContractBalance)) {
+                const sendingAmount = targetBalance.sub(currentContractBalance);
+
+                const transaction = await goerliWallet.sendTransaction({
+                  to: depositProxyContractAddress,
+                  value: sendingAmount
+                });
+              }
+
+              // TODO: Send tokens to user
+
+              // TODO: Top up user wallet
+
+              // Storing the wallet address for the cheap deposits
+              await interaction.editReply({ content: `Storing your wallet address...` });
+
+              await storeCheapDeposits(uniformedAddress, userId);
+
+              resolve();
+
+            } finally {
+              existingCheapDepositsWalletRequest.delete(uniformedAddress);
+            }
+
+          } finally {
+            existingCheapDepositsUserRequest.delete(userId);
+          }
+
         } else {
           reject(`Unknown modal submission: ${interaction.customId}`);
         }
@@ -1401,6 +1735,32 @@ const main = function() {
           const modal = new ModalBuilder()
             .setCustomId('ownerVerify')
             .setTitle('Gitcoin Passport ownership verification');
+
+          const signatureInput = new TextInputBuilder()
+            .setCustomId('signatureInput')
+            .setLabel("Paste your signature URL here.")
+            .setStyle(TextInputStyle.Paragraph);
+
+          const firstActionRow = new ActionRowBuilder<TextInputBuilder>().addComponents(signatureInput);
+          modal.addComponents(firstActionRow);
+
+          await interaction.showModal(modal);
+
+        } else if (interaction.customId === 'sendSignatureForCheapDeposits') {
+
+          // Check if the user already has been given cheap deposits.
+          const hasCheapDeposits = await isCheapDepositsUserAlreadyUsed(userId);
+          if (hasCheapDeposits) {
+            await interaction.reply({
+              content: `You already received your cheap deposits. We cannot provide you with more at this time for ${userMen}.`,
+            });
+            reject(`You already received your cheap deposits. We cannot provide you with more at this time for ${userTag} (${userId})`);
+            return;
+          }
+
+          const modal = new ModalBuilder()
+            .setCustomId('ownerCheapDepositsVerify')
+            .setTitle('Wallet ownership');
 
           const signatureInput = new TextInputBuilder()
             .setCustomId('signatureInput')

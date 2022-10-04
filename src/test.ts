@@ -199,6 +199,27 @@ const main = function() {
             }
           });
 
+          db.run(`CREATE TABLE IF NOT EXISTS cheap_deposit (walletAddress TEXT UNIQUE NOT NULL, userId TEXT UNIQUE NOT NULL, lastRequested INTEGER NOT NULL);`, (error: Error | null) => {
+            if (error !== null) {
+              reject(error);
+              return;
+            }
+          });
+
+          db.run(`CREATE UNIQUE INDEX IF NOT EXISTS cheap_deposit_walletAddress on passport ( walletAddress );`, (error: Error | null) => {
+            if (error !== null) {
+              reject(error);
+              return;
+            }
+          });
+
+          db.run(`CREATE UNIQUE INDEX IF NOT EXISTS cheap_deposit_userId on passport ( userId );`, (error: Error | null) => {
+            if (error !== null) {
+              reject(error);
+              return;
+            }
+          });
+
           let index = 0;
           faucetCommandsConfig.forEach((config, key, map) => {
             const tableName = config.requestTable;
