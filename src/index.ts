@@ -855,7 +855,8 @@ const main = function() {
             `2. Let our bot do the deposit for you in ${fundGoerliValidatorMention} with the ` +
             `\`!fundValidator\` text command. (${brightIdVerificationMention} or ${passportVerificationMention} required)\n` +
             `3. Obtain enough GoETH to do the deposit yourself in ${requestGoerliChannelMen} with the \`/request-goeth\` slash command. ` +
-            `(Only for validator deposits and ${brightIdVerificationMention} or ${passportVerificationMention} required)\n`
+            `(Only for validator deposits and ${brightIdVerificationMention} or ${passportVerificationMention} required)\n` +
+            `for ${userMen}`
             );
           
           interaction.reply({
