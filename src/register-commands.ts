@@ -48,8 +48,8 @@ const commands = [
       .setDescription('Enable or disable auto posting the participation rate.')
       .setRequired(true)),
   new SlashCommandBuilder()
-    .setName('goeth-msg')
-    .setDescription('Explain how to get Goerli ETH to someone else.')
+    .setName('goerli-validator-deposit')
+    .setDescription('Explain the various ways to do a validator deposit on Goerli.')
     .addUserOption(option => option
       .setName('user')
       .setDescription('An optional user to ping with the message.')
@@ -71,6 +71,9 @@ const commands = [
   new SlashCommandBuilder()
     .setName('verify-passport')
     .setDescription('Verify your Gitcoin Passport created on https://passport.gitcoin.co/.'),
+  new SlashCommandBuilder()
+    .setName('cheap-goerli-deposit')
+    .setDescription('Obtain some cheap and easy Goerli validator deposits.'),
 ]
 	.map(command => command.toJSON());
 

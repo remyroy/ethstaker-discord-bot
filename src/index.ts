@@ -20,7 +20,7 @@ import seedrandom from 'seedrandom';
 
 const db = new Database('db.sqlite');
 const quickNewRequest = Duration.fromObject({ days: 1 });
-const maxTransactionCost = utils.parseUnits("0.00005", "ether");
+const maxTransactionCost = utils.parseUnits("0.0001", "ether");
 const cheapDepositCost = utils.parseUnits("0.0001", "ether");
 const cheapDepositCount = 2;
 const minRelativeCheapDepositCount = 4;
@@ -823,21 +823,23 @@ const main = function() {
             await interaction.followUp(`Error while trying to query beaconcha.in API for ${network} queue details for ${userMen}. ${error}`);
           }
 
-        } else if (commandName === 'goeth-msg') {
+        } else if (commandName === 'goerli-validator-deposit') {
           console.log(`${commandName} from ${userTag} (${userId})`);
 
           const channelName = process.env.GOERLI_CHANNEL_NAME;
-          let channelMen = '';
+          let requestGoerliChannelMen = '';
 
           if (channelName !== undefined && channelName !== '') {
             const requestChannel = interaction.guild?.channels.cache.find((channel) => channel.name === channelName);
             if (requestChannel !== undefined) {
-              channelMen = channelMention(requestChannel.id);
+              requestGoerliChannelMen = channelMention(requestChannel.id);
             }
           }
 
-          const brightIdMention = channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
-          const passportMention = channelMention(process.env.PASSPORT_CHANNEL_ID as string);
+          const brightIdVerificationMention = channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
+          const passportVerificationMention = channelMention(process.env.PASSPORT_CHANNEL_ID as string);
+          const cheapGoerliValidatorMention = channelMention(process.env.CHEAP_GOERLI_VALIDATOR_CHANNEL_ID as string);
+          const fundGoerliValidatorMention = channelMention(process.env.FUND_GOERLI_VALIDATOR_CHANNEL_ID as string);
 
           let targetUser = 'You';
 
@@ -847,10 +849,13 @@ const main = function() {
           }
 
           const msg = (
-            `${targetUser} can request Goerli ETH to run a validator on Goerli on ${channelMen}` +
-            ` but first, you will need to be BrightID verified in ${brightIdMention} or Passport` +
-            ` verified in ${passportMention}. Alternatively` +
-            ` you can use these online faucets https://faucetlink.to/goerli for ${userMen}`
+            `EthStaker is offering 3 ways to perform your Goerli validator deposit for ${targetUser}:\n` +
+            `1. Get some cheap Goerli deposits on ${cheapGoerliValidatorMention} with the ` +
+            `\`/cheap-goerli-deposit\` slash command. (No verification needed)\n` +
+            `2. Let our bot do the deposit for you in ${fundGoerliValidatorMention} with the ` +
+            `\`!fundValidator\` text command. (${brightIdVerificationMention} or ${passportVerificationMention} required)\n` +
+            `3. Obtain enough GoETH to do the deposit yourself in ${requestGoerliChannelMen} with the \`/request-goeth\` slash command. ` +
+            `(Only for validator deposits and ${brightIdVerificationMention} or ${passportVerificationMention} required)\n`
             );
           
           interaction.reply({
