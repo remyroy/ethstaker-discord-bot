@@ -902,20 +902,7 @@ const main = function() {
         } else if (commandName === 'goerli-validator-deposit') {
           console.log(`${commandName} from ${userTag} (${userId})`);
 
-          const channelName = process.env.GOERLI_CHANNEL_NAME;
-          let requestGoerliChannelMen = '';
-
-          if (channelName !== undefined && channelName !== '') {
-            const requestChannel = interaction.guild?.channels.cache.find((channel) => channel.name === channelName);
-            if (requestChannel !== undefined) {
-              requestGoerliChannelMen = channelMention(requestChannel.id);
-            }
-          }
-
-          const brightIdVerificationMention = channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
-          const passportVerificationMention = channelMention(process.env.PASSPORT_CHANNEL_ID as string);
           const cheapGoerliValidatorMention = channelMention(process.env.CHEAP_GOERLI_VALIDATOR_CHANNEL_ID as string);
-          const fundGoerliValidatorMention = channelMention(process.env.FUND_GOERLI_VALIDATOR_CHANNEL_ID as string);
 
           let targetUser = 'You';
 
@@ -925,14 +912,9 @@ const main = function() {
           }
 
           const msg = (
-            `EthStaker is offering 3 ways to perform your Goerli validator deposit for ${targetUser}:\n` +
+            `Here is the main way to perform your Goerli validator deposit for ${targetUser}:\n` +
             `1. Get some cheap Goerli validator deposits on ${cheapGoerliValidatorMention} with the ` +
-            `\`/cheap-goerli-deposit\` slash command. (No verification needed)\n` +
-            `2. Let our bot do the deposit for you in ${fundGoerliValidatorMention} with the ` +
-            `\`!fundValidator\` text command. (${brightIdVerificationMention} or ${passportVerificationMention} required)\n` +
-            `3. Obtain enough GoETH to do the deposit yourself in ${requestGoerliChannelMen} with the \`/request-goeth\` slash command. ` +
-            `(Only for validator deposits and ${brightIdVerificationMention} or ${passportVerificationMention} required)\n` +
-            `for ${userMen}`
+            `\`/cheap-goerli-deposit\` slash command. (No verification needed)`
             );
           
           interaction.reply({
