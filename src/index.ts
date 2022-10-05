@@ -1113,9 +1113,9 @@ const main = function() {
             .setDescription('Prove your wallet address ownership here.');
 
           await interaction.reply({
-            content: `Sign the message on Signer.is with the wallet address you want ` +
-                     `to use to perform your deposit on Goerli to prove ` +
-                     `ownership, click the *Copy Link* button on Signer.is ` +
+            content: `Click on the Signer.is link below and sign the requested message with the ` +
+                     `wallet address you want to use to perform your deposit on Goerli to prove ` +
+                     `ownership. Once you are done signing, click the *Copy Link* button on Signer.is ` +
                      `and click the **Enter Signature** button to paste your signature URL.`,
             components: [row],
             embeds: [signerEmbed],
