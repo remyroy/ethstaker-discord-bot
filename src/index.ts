@@ -1483,6 +1483,8 @@ const main = function() {
 
               const passportId = await storePassportWallet(uniformedAddress, userId);
 
+              await interaction.deleteReply();
+
               // Store stamps for next deduplication
               storeStamps(passportId, stampHashes).then(async (value) => {
                 if (value) {
@@ -1731,6 +1733,8 @@ const main = function() {
               await interaction.editReply({ content: `Storing your wallet address...` });
 
               await storeCheapDeposits(uniformedAddress, userId);
+
+              await interaction.deleteReply();
 
               await interaction.followUp({
                 content: `You can now perform ${cheapDepositCount} cheap deposits on <https://goerli.launchpad.ethstaker.cc/> with your wallet address ${uniformedAddress} for ${userMen}.`,
