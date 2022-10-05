@@ -37,7 +37,7 @@ const CHURN_LIMIT_QUOTIENT = 65536;
 
 const depositProxyContractAddress = process.env.PROXY_GOERLI_DEPOSIT_CONTRACT as string;
 const depositProxyContractAbi = [
-  "function balanceOf(address,uint256)",
+  "function balanceOf(address,uint256) view returns (uint256)",
   "function safeTransferFrom(address,address,uint256,uint256,bytes)",
 ];
 
