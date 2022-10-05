@@ -1695,8 +1695,18 @@ const main = function() {
               await interaction.editReply({ content: `Whitelisting the wallet address for ${cheapDepositCount} cheap deposits...` });
 
               const depositProxyContract = new Contract(depositProxyContractAddress, depositProxyContractAbi, goerliWallet);
-              await depositProxyContract.safeTransferFrom(
-                goerliWallet.address, uniformedAddress, 0, cheapDepositCount, Buffer.from(''));
+              const targetTokenBalance = cheapDepositCount;
+              const currentTokenBalance = await depositProxyContract.balanceOf(uniformedAddress, 0) as number;
+              if (currentTokenBalance < targetTokenBalance) {
+                const sendingAmount = targetTokenBalance - currentTokenBalance;
+
+                console.log(`Sending cheap deposits tokens to user (${uniformedAddress}). Our target: ${targetTokenBalance}, ` +
+                  `current balance: ${currentTokenBalance}, ` +
+                  `sending amount: ${sendingAmount}`);
+
+                await depositProxyContract.safeTransferFrom(
+                  goerliWallet.address, uniformedAddress, 0, sendingAmount, Buffer.from(''));
+              }
 
               // Top up user wallet
               await interaction.editReply({ content: `Ensuring you have enough funds in that wallet for the ${cheapDepositCount} cheap deposits...` });
