@@ -1678,8 +1678,12 @@ const main = function() {
                 maxTransactionCost.mul(targetMultiplier));
               const currentContractBalance = await goerliProvider.getBalance(depositProxyContractAddress);
 
-              if (targetBalance.gte(currentContractBalance)) {
+              if (targetBalance.gt(currentContractBalance)) {
                 const sendingAmount = targetBalance.sub(currentContractBalance);
+
+                console.log(`Refilling proxy contract. Our target: ${utils.formatEther(targetBalance)}, ` +
+                  `current balance: ${utils.formatEther(currentContractBalance)}, ` +
+                  `sending amount: ${utils.formatEther(sendingAmount)}`);
 
                 const transaction = await goerliWallet.sendTransaction({
                   to: depositProxyContractAddress,
@@ -1700,11 +1704,15 @@ const main = function() {
               const targetWalletBalance = cheapDepositCost.mul(cheapDepositCount).add(maxTransactionCost.mul(cheapDepositCount));
               const currentWalletBalance = await goerliProvider.getBalance(uniformedAddress);
 
-              if (targetWalletBalance.gte(currentWalletBalance)) {
-                const sendingAmount = targetBalance.sub(currentContractBalance);
+              if (targetWalletBalance.gt(currentWalletBalance)) {
+                const sendingAmount = targetWalletBalance.sub(currentWalletBalance);
+
+                console.log(`Filling user wallet (${uniformedAddress}). Our target: ${utils.formatEther(targetWalletBalance)}, ` +
+                  `current balance: ${utils.formatEther(currentWalletBalance)}, ` +
+                  `sending amount: ${utils.formatEther(sendingAmount)}`);
 
                 const transaction = await goerliWallet.sendTransaction({
-                  to: depositProxyContractAddress,
+                  to: uniformedAddress,
                   value: sendingAmount
                 });
               }
