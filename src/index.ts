@@ -23,7 +23,7 @@ const quickNewRequest = Duration.fromObject({ days: 1 });
 const maxTransactionCost = utils.parseUnits("0.0001", "ether");
 const cheapDepositCost = utils.parseUnits("0.0001", "ether");
 const cheapDepositCount = 2;
-const minRelativeCheapDepositCount = 4;
+const minRelativeCheapDepositCount = 5;
 const validatorDepositCost = utils.parseUnits("32", "ether");
 
 const restrictedRoles = new Set<string>(process.env.ROLE_IDS?.split(','));
