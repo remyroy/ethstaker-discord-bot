@@ -26,7 +26,7 @@ const cheapDepositCount = 2;
 const minRelativeCheapDepositCount = 5;
 const validatorDepositCost = utils.parseUnits("32", "ether");
 
-const newAccountDelay = Duration.fromObject({ days: 14 });
+const newAccountDelay = Duration.fromObject({ days: 7 });
 
 const restrictedRoles = new Set<string>(process.env.ROLE_IDS?.split(','));
 restrictedRoles.add(process.env.PASSPORT_ROLE_ID as string);
