@@ -1011,7 +1011,7 @@ const main = function() {
 
           // Check for new accounts
           const userCreatedAt = DateTime.fromSeconds(interaction.user.createdTimestamp);
-          const userExistDuration = DateTime.utc().diff(userCreatedAt);
+          const userExistDuration = userCreatedAt.diff(DateTime.utc());
 
           console.log(`Comparing account creation: existence duration: ${userExistDuration.toMillis()} < new account delay: ${newAccountDelay.toMillis()}?`);
           if (userExistDuration.toMillis() < newAccountDelay.toMillis()) {
