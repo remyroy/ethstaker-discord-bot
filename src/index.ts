@@ -83,16 +83,11 @@ const main = function() {
     });
 
     const goerliProvider = new providers.InfuraProvider(providers.getNetwork('goerli'), process.env.INFURA_API_KEY);
-    const ropstenProvider = new providers.InfuraProvider(providers.getNetwork('ropsten'), process.env.INFURA_API_KEY);
     const sepoliaProvider = new providers.JsonRpcProvider(`https://sepolia.infura.io/v3/${process.env.INFURA_API_KEY}`);
 
     goerliProvider.getBlockNumber()
     .then((currentBlockNumber) => {
       console.log(`Goerli RPC provider is at block number ${currentBlockNumber}.`);
-    });
-    ropstenProvider.getBlockNumber()
-    .then((currentBlockNumber) => {
-      console.log(`Ropsten RPC provider is at block number ${currentBlockNumber}.`);
     });
     sepoliaProvider.getBlockNumber()
     .then((currentBlockNumber) => {
@@ -118,22 +113,6 @@ const main = function() {
       requestAmount: validatorDepositCost.add(maxTransactionCost),
       wallet: goerliWallet,
       provider: goerliProvider,
-    });
-
-    faucetCommandsConfig.set('request-ropsten-eth', {
-      network: 'Ropsten',
-      currency: 'Ropsten ETH',
-      command: 'request-ropsten-eth',
-      channel: process.env.ROPSTEN_CHANNEL_NAME,
-      enoughReason: 'It should be plenty already for a validator deposit',
-      requestTable: 'request_ropsten',
-      rateLimitDuration: Duration.fromObject({ days: 4 }),
-      explorerTxRoot: 'https://ropsten.etherscan.io/tx/',
-      existingRequest: new Map<string, boolean>(),
-      minEthers: validatorDepositCost.add(maxTransactionCost.mul(2)),
-      requestAmount: validatorDepositCost.add(maxTransactionCost),
-      wallet: new Wallet(process.env.FAUCET_PRIVATE_KEY as string, ropstenProvider),
-      provider: ropstenProvider,
     });
 
     faucetCommandsConfig.set('request-sepolia-eth', {
@@ -186,11 +165,6 @@ const main = function() {
     queueCommandsConfig.set('queue-goerli', {
       network: 'Goerli',
       apiQueueUrl: 'https://goerli.beaconcha.in/api/v1/validators/queue'
-    });
-
-    queueCommandsConfig.set('queue-ropsten', {
-      network: 'Ropsten',
-      apiQueueUrl: 'https://ropsten.beaconcha.in/api/v1/validators/queue'
     });
 
     const initDb = function(db: Database, faucetCommandsConfig: Map<string, networkConfig>) {
@@ -915,41 +889,6 @@ const main = function() {
             `Here is the main way to perform your Goerli validator deposit for ${targetUser}:\n` +
             `1. Get some cheap Goerli validator deposits on ${cheapGoerliValidatorMention} with the ` +
             `\`/cheap-goerli-deposit\` slash command. (No verification needed)`
-            );
-          
-          interaction.reply({
-            content: msg,
-            flags: MessageFlags.SuppressEmbeds
-          });
-
-        } else if (commandName === 'ropsten-eth-msg') {
-          console.log(`${commandName} from ${userTag} (${userId})`);
-
-          const channelName = process.env.ROPSTEN_CHANNEL_NAME;
-          let channelMen = '';
-
-          if (channelName !== undefined && channelName !== '') {
-            const requestChannel = interaction.guild?.channels.cache.find((channel) => channel.name === channelName);
-            if (requestChannel !== undefined) {
-              channelMen = channelMention(requestChannel.id);
-            }
-          }
-
-          const brightIdMention = channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
-          const passportMention = channelMention(process.env.PASSPORT_CHANNEL_ID as string);
-
-          let targetUser = 'You';
-
-          const inputUser = interaction.options.getUser('user', false);
-          if (inputUser !== null) {
-            targetUser = userMention(inputUser.id);
-          }
-
-          const msg = (
-            `${targetUser} can request Ropsten ETH to run a validator on Ropsten on ${channelMen}` +
-            ` but first, you will need to be BrightID verified in ${brightIdMention} or Passport` +
-            ` verified in ${passportMention}. Alternatively` +
-            ` you can use these online faucets https://faucetlink.to/ropsten for ${userMen}`
             );
           
           interaction.reply({

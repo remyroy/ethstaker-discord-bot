@@ -18,13 +18,6 @@ const commands = [
       .setDescription('A valid Ethereum address. It can be a full address or an ENS.')
       .setRequired(true)),
   new SlashCommandBuilder()
-    .setName('request-ropsten-eth')
-    .setDescription('Request enough Ropsten ETH for a validator deposit to be transfered into your wallet.')
-    .addStringOption(option => option
-      .setName('address')
-      .setDescription('A valid Ethereum address. It can be a full address or an ENS.')
-      .setRequired(true)),
-  new SlashCommandBuilder()
     .setName('request-sepolia-eth')
     .setDescription('Request some funds for transactions on the Sepolia testnet to be transfered into your wallet.')
     .addStringOption(option => option
@@ -36,8 +29,6 @@ const commands = [
     .setDescription('Get validators activation and exit queue details from Mainnet.'),
   new SlashCommandBuilder().setName('queue-goerli')
     .setDescription('Get validators activation and exit queue details from Goerli testnet.'),
-  new SlashCommandBuilder().setName('queue-ropsten')
-    .setDescription('Get validators activation and exit queue details from Ropsten testnet.'),
   new SlashCommandBuilder().setName('participation-mainnet')
     .setDescription('Get the current participation rate on Mainnet.'),
   new SlashCommandBuilder()
@@ -50,13 +41,6 @@ const commands = [
   new SlashCommandBuilder()
     .setName('goerli-validator-deposit')
     .setDescription('Explain the various ways to do a validator deposit on Goerli.')
-    .addUserOption(option => option
-      .setName('user')
-      .setDescription('An optional user to ping with the message.')
-      .setRequired(false)),
-  new SlashCommandBuilder()
-    .setName('ropsten-eth-msg')
-    .setDescription('Explain how to get Ropsten ETH to someone else.')
     .addUserOption(option => option
       .setName('user')
       .setDescription('An optional user to ping with the message.')
