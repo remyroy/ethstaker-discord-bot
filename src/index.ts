@@ -26,6 +26,8 @@ const cheapDepositCount = 2;
 const minRelativeCheapDepositCount = 5;
 const validatorDepositCost = utils.parseUnits("32", "ether");
 
+const newAccountDelay = Duration.fromObject({ days: 14 });
+
 const restrictedRoles = new Set<string>(process.env.ROLE_IDS?.split(','));
 restrictedRoles.add(process.env.PASSPORT_ROLE_ID as string);
 
@@ -1005,6 +1007,19 @@ const main = function() {
               reject(`This is the wrong channel for this bot command (${commandName}). You should try in #${restrictChannel.name} for @${userTag} (${userId}).`);
               return;
             }
+          }
+
+          // Check for new accounts
+          const userCreatedAt = DateTime.fromSeconds(interaction.user.createdTimestamp);
+          const userExistDuration = DateTime.utc().diff(userCreatedAt);
+
+          console.log(`Comparing account creation: existence duration: ${userExistDuration.toMillis()} < new account delay: ${newAccountDelay.toMillis()}?`);
+          if (userExistDuration.toMillis() < newAccountDelay.toMillis()) {
+            await interaction.reply({
+              content: `Your Discord account was just created. We need to restrict access for new accounts because of abuses. Please try again in a few days for ${userMen}.`,
+            });
+            reject(`Your Discord account was just created. We need to restrict access for new accounts because of abuses. Please try again in a few days for ${userTag} (${userId})`);
+            return;
           }
 
           // Check if the user already has been given cheap deposits.
