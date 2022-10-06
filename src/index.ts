@@ -1010,11 +1010,11 @@ const main = function() {
           }
 
           // Check for new accounts
-          const userCreatedAt = DateTime.fromSeconds(interaction.user.createdTimestamp);
-          const userExistDuration = userCreatedAt.diff(DateTime.utc());
+          const userCreatedAt = DateTime.fromSeconds(interaction.user.createdTimestamp).toMillis();
+          const userExistDuration = DateTime.utc().toMillis() - userCreatedAt;
 
-          console.log(`Comparing account creation: existence duration: ${userExistDuration.toMillis()} < new account delay: ${newAccountDelay.toMillis()}?`);
-          if (userExistDuration.toMillis() < newAccountDelay.toMillis()) {
+          console.log(`Comparing account creation: createdAt: ${userCreatedAt}, existence: ${userExistDuration} < delay: ${newAccountDelay.toMillis()}?`);
+          if (userExistDuration < newAccountDelay.toMillis()) {
             await interaction.reply({
               content: `Your Discord account was just created. We need to restrict access for new accounts because of abuses. Please try again in a few days for ${userMen}.`,
             });
