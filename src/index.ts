@@ -1013,7 +1013,6 @@ const main = function() {
           const userCreatedAt = interaction.user.createdTimestamp;
           const userExistDuration = DateTime.utc().toMillis() - userCreatedAt;
 
-          console.log(`Comparing account creation: createdAt: ${userCreatedAt}, existence: ${userExistDuration} < delay: ${newAccountDelay.toMillis()}?`);
           if (userExistDuration < newAccountDelay.toMillis()) {
             await interaction.reply({
               content: `Your Discord account was just created. We need to restrict access for new accounts because of abuses. Please try again in a few days for ${userMen}.`,
