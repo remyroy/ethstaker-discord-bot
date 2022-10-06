@@ -1010,8 +1010,7 @@ const main = function() {
           }
 
           // Check for new accounts
-          console.log(`UTC: ${DateTime.utc().toMillis()}`);
-          /*const userCreatedAt = DateTime.fromSeconds(interaction.user.createdTimestamp).toMillis();
+          const userCreatedAt = interaction.user.createdTimestamp;
           const userExistDuration = DateTime.utc().toMillis() - userCreatedAt;
 
           console.log(`Comparing account creation: createdAt: ${userCreatedAt}, existence: ${userExistDuration} < delay: ${newAccountDelay.toMillis()}?`);
@@ -1021,7 +1020,7 @@ const main = function() {
             });
             reject(`Your Discord account was just created. We need to restrict access for new accounts because of abuses. Please try again in a few days for ${userTag} (${userId})`);
             return;
-          }*/
+          }
 
           // Check if the user already has been given cheap deposits.
           const hasCheapDeposits = await isCheapDepositsUserAlreadyUsed(userId);
