@@ -17,6 +17,7 @@
     "@discordjs/rest": "^1.1.0",
     "@gitcoinco/passport-sdk-types": "^0.2.0",
     "@gitcoinco/passport-sdk-verifier": "../passport-sdk/packages/verifier",
+    "async-mutex": "^0.4.0",
     "axios": "^0.27.2",
     "bufferutil": "^4.0.6",
     "discord-api-types": "^0.37.10",

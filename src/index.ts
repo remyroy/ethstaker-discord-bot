@@ -13,6 +13,7 @@ import { Passport } from '@gitcoinco/passport-sdk-types';
 
 import { MessageFlags } from 'discord-api-types/v9';
 import { DateTime, Duration } from 'luxon';
+import { Mutex } from 'async-mutex';
 
 import EventSource from 'eventsource';
 import axios from 'axios';
@@ -57,6 +58,7 @@ interface networkConfig {
   requestAmount: BigNumber;
   wallet: Wallet;
   provider: providers.Provider;
+  transactionMutex: Mutex;
 };
 
 interface queueConfig {
@@ -87,6 +89,9 @@ const main = function() {
     const goerliProvider = new providers.InfuraProvider(providers.getNetwork('goerli'), process.env.INFURA_API_KEY);
     const sepoliaProvider = new providers.JsonRpcProvider(`https://sepolia.infura.io/v3/${process.env.INFURA_API_KEY}`);
 
+    const goerliTransactionMutex = new Mutex();
+    const sepoliaTransactionMutext = new Mutex();
+
     goerliProvider.getBlockNumber()
     .then((currentBlockNumber) => {
       console.log(`Goerli RPC provider is at block number ${currentBlockNumber}.`);
@@ -115,6 +120,7 @@ const main = function() {
       requestAmount: validatorDepositCost.add(maxTransactionCost),
       wallet: goerliWallet,
       provider: goerliProvider,
+      transactionMutex: goerliTransactionMutex,
     });
 
     faucetCommandsConfig.set('request-sepolia-eth', {
@@ -131,6 +137,7 @@ const main = function() {
       requestAmount: utils.parseUnits("1", "ether"),
       wallet: new Wallet(process.env.FAUCET_PRIVATE_KEY as string, sepoliaProvider),
       provider: sepoliaProvider,
+      transactionMutex: sepoliaTransactionMutext
     });
 
     // Logging faucet wallet balance and remaining requests
@@ -562,6 +569,7 @@ const main = function() {
 
           const config = faucetCommandsConfig.get(commandName) as networkConfig;
           const channelName = config.channel;
+          const transactionMutex = config.transactionMutex;
 
           if (channelName !== undefined && channelName !== '') {
             const restrictChannel = interaction.guild?.channels.cache.find((channel) => channel.name === channelName);
@@ -757,10 +765,21 @@ const main = function() {
             // Send the currency
             await interaction.editReply(`Sending ${utils.formatEther(sendingAmount)} ${currency} to ${targetAddress}...`);
             try {
-              const transaction = await wallet.sendTransaction({
-                to: targetAddress,
-                value: sendingAmount
+              let transaction: providers.TransactionResponse | null = null;
+              await transactionMutex.runExclusive(async () => {
+                transaction = await wallet.sendTransaction({
+                  to: targetAddress,
+                  value: sendingAmount
+                });
               });
+
+              if (transaction === null) {
+                await interaction.followUp(`Sending currency failed on ${network} faucet for ${userMen}.`);
+                reject(`Sending currency failed on ${network} faucet for @${userTag} (${userId}).`);
+                return;
+              }
+
+              transaction = transaction as unknown as providers.TransactionResponse;
               
               await storeLastRequest(userId, targetAddress, tableName);
 
@@ -1622,10 +1641,13 @@ const main = function() {
                   `current balance: ${utils.formatEther(currentContractBalance)}, ` +
                   `sending amount: ${utils.formatEther(sendingAmount)}`);
 
-                const transaction = await goerliWallet.sendTransaction({
-                  to: depositProxyContractAddress,
-                  value: sendingAmount
+                await goerliTransactionMutex.runExclusive(async () => {
+                  const transaction = await goerliWallet.sendTransaction({
+                    to: depositProxyContractAddress,
+                    value: sendingAmount
+                  });
                 });
+                
               }
 
               // Send tokens to user
@@ -1641,8 +1663,10 @@ const main = function() {
                   `current balance: ${currentTokenBalance}, ` +
                   `sending amount: ${sendingAmount}`);
 
-                await depositProxyContract.safeTransferFrom(
-                  goerliWallet.address, uniformedAddress, 0, sendingAmount, Buffer.from(''));
+                await goerliTransactionMutex.runExclusive(async () => {
+                  await depositProxyContract.safeTransferFrom(
+                    goerliWallet.address, uniformedAddress, 0, sendingAmount, Buffer.from(''));
+                });
               }
 
               // Top up user wallet
@@ -1658,9 +1682,11 @@ const main = function() {
                   `current balance: ${utils.formatEther(currentWalletBalance)}, ` +
                   `sending amount: ${utils.formatEther(sendingAmount)}`);
 
-                const transaction = await goerliWallet.sendTransaction({
-                  to: uniformedAddress,
-                  value: sendingAmount
+                await goerliTransactionMutex.runExclusive(async () => {
+                  const transaction = await goerliWallet.sendTransaction({
+                    to: uniformedAddress,
+                    value: sendingAmount
+                  });
                 });
               }
 
