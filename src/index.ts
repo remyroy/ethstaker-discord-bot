@@ -90,7 +90,7 @@ const main = function() {
     const sepoliaProvider = new providers.JsonRpcProvider(`https://sepolia.infura.io/v3/${process.env.INFURA_API_KEY}`);
 
     const goerliTransactionMutex = new Mutex();
-    const sepoliaTransactionMutext = new Mutex();
+    const sepoliaTransactionMutex = new Mutex();
 
     goerliProvider.getBlockNumber()
     .then((currentBlockNumber) => {
@@ -137,7 +137,7 @@ const main = function() {
       requestAmount: utils.parseUnits("1", "ether"),
       wallet: new Wallet(process.env.FAUCET_PRIVATE_KEY as string, sepoliaProvider),
       provider: sepoliaProvider,
-      transactionMutex: sepoliaTransactionMutext
+      transactionMutex: sepoliaTransactionMutex
     });
 
     // Logging faucet wallet balance and remaining requests
@@ -766,28 +766,30 @@ const main = function() {
             await interaction.editReply(`Sending ${utils.formatEther(sendingAmount)} ${currency} to ${targetAddress}...`);
             try {
               let transaction: providers.TransactionResponse | null = null;
+              let explorerTxURL: string | null = null;
               await transactionMutex.runExclusive(async () => {
                 transaction = await wallet.sendTransaction({
                   to: targetAddress,
                   value: sendingAmount
                 });
+
+                if (transaction === null) {
+                  await interaction.followUp(`Sending currency failed on ${network} faucet for ${userMen}.`);
+                  reject(`Sending currency failed on ${network} faucet for @${userTag} (${userId}).`);
+                  return;
+                }
+  
+                transaction = transaction as unknown as providers.TransactionResponse;
+  
+                const transactionHash = transaction.hash;
+                const explorerTxRoot = config.explorerTxRoot;
+                explorerTxURL = explorerTxRoot + transactionHash;
+                await interaction.editReply(`${utils.formatEther(sendingAmount)} ${currency} have been sent to ${targetAddress}. Explore that transaction on ${explorerTxURL}. Waiting for 1 confirm...`);
+                await transaction.wait(1);
               });
 
-              if (transaction === null) {
-                await interaction.followUp(`Sending currency failed on ${network} faucet for ${userMen}.`);
-                reject(`Sending currency failed on ${network} faucet for @${userTag} (${userId}).`);
-                return;
-              }
-
-              transaction = transaction as unknown as providers.TransactionResponse;
-              
               await storeLastRequest(userId, targetAddress, tableName);
-
-              const transactionHash = transaction.hash;
-              const explorerTxRoot = config.explorerTxRoot;
-              const explorerTxURL = explorerTxRoot + transactionHash;
-              await interaction.editReply(`${utils.formatEther(sendingAmount)} ${currency} have been sent to ${targetAddress}. Explore that transaction on ${explorerTxURL}. Waiting for 1 confirm...`);
-              await transaction.wait(1);
+              
               await interaction.editReply(`Transaction confirmed with 1 block confirmation.`);
               
               const remainingRequests = faucetBalance.sub(sendingAmount).div(requestAmount);
@@ -1646,6 +1648,8 @@ const main = function() {
                     to: depositProxyContractAddress,
                     value: sendingAmount
                   });
+
+                  await transaction.wait(1);
                 });
                 
               }
@@ -1664,8 +1668,9 @@ const main = function() {
                   `sending amount: ${sendingAmount}`);
 
                 await goerliTransactionMutex.runExclusive(async () => {
-                  await depositProxyContract.safeTransferFrom(
+                  const transaction: providers.TransactionResponse = await depositProxyContract.safeTransferFrom(
                     goerliWallet.address, uniformedAddress, 0, sendingAmount, Buffer.from(''));
+                  await transaction.wait(1);
                 });
               }
 
@@ -1687,6 +1692,8 @@ const main = function() {
                     to: uniformedAddress,
                     value: sendingAmount
                   });
+
+                  await transaction.wait(1);
                 });
               }
 
