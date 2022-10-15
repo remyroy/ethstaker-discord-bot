@@ -5,7 +5,7 @@ import {
   Client, GatewayIntentBits, userMention, channelMention,
   GuildMemberRoleManager, TextChannel, ModalBuilder, TextInputBuilder,
   TextInputStyle, ActionRowBuilder, ModalSubmitInteraction,
-  CommandInteraction, ButtonBuilder, ButtonInteraction, ButtonStyle, EmbedBuilder } from 'discord.js';
+  CommandInteraction, ButtonBuilder, ButtonInteraction, ButtonStyle, EmbedBuilder, GuildMember } from 'discord.js';
 import { BigNumber, providers, utils, Wallet, Contract } from 'ethers';
 import { Database, RunResult } from 'sqlite3';
 
@@ -28,6 +28,7 @@ const minRelativeCheapDepositCount = 5;
 const validatorDepositCost = utils.parseUnits("32", "ether");
 
 const newAccountDelay = Duration.fromObject({ days: 7 });
+const joinedDiscordServerDelay = Duration.fromObject({ days: 4 });
 
 const restrictedRoles = new Set<string>(process.env.ROLE_IDS?.split(','));
 restrictedRoles.add(process.env.PASSPORT_ROLE_ID as string);
@@ -1039,6 +1040,18 @@ const main = function() {
               content: `Your Discord account was just created. We need to restrict access for new accounts because of abuses. Please try again in a few days for ${userMen}.`,
             });
             reject(`Your Discord account was just created. We need to restrict access for new accounts because of abuses. Please try again in a few days for ${userTag} (${userId})`);
+            return;
+          }
+
+          // Check for new guild member
+          const memberJoinedAt = (interaction.member as GuildMember).joinedTimestamp;
+          const memberDuration = DateTime.utc().toMillis() - (memberJoinedAt as number);
+
+          if (memberDuration < joinedDiscordServerDelay.toMillis()) {
+            await interaction.reply({
+              content: `You just joined the EthStaker Discord server. We need to restrict access for members who just joined because of abuses. Please try again in a few days for ${userMen}.`,
+            });
+            reject(`You just joined the EthStaker Discord server. We need to restrict access for members who just joined because of abuses. Please try again in a few days for ${userTag} (${userId})`);
             return;
           }
 
