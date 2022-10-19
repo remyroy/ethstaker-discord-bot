@@ -1001,7 +1001,7 @@ const main = function() {
           const signerEmbed = new EmbedBuilder()
             .setTitle('Signer.is')
             .setURL(signer_is_url)
-            .setDescription('Prove your wallet address ownership here.');
+            .setDescription('Prove your wallet address ownership here. You **MUST** use this link as it contains the message you need to sign.');
 
           await interaction.reply({
             content: `Create your Gitcoin Passport, add enough stamps in it and ` +
@@ -1079,7 +1079,7 @@ const main = function() {
           const signerEmbed = new EmbedBuilder()
             .setTitle('Signer.is')
             .setURL(signer_is_url)
-            .setDescription('Prove your wallet address ownership here.');
+            .setDescription('Prove your wallet address ownership here. You **MUST** use this link as it contains the message you need to sign.');
 
           await interaction.reply({
             content: `Click on the Signer.is __link below__ and sign the requested message with the ` +
