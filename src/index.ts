@@ -1006,8 +1006,8 @@ const main = function() {
           await interaction.reply({
             content: `Create your Gitcoin Passport, add enough stamps in it and ` +
                      `prove you own that wallet address. Once you are done filling ` +
-                     `your Gitcoin Passport and signing the message to prove ` +
-                     `ownership, click the *Copy Link* button on Signer.is ` +
+                     `your Gitcoin Passport, click on the __link below__ to sign a message ` +
+                     `proving ownership, click the *Copy Link* button on Signer.is ` +
                      `and click the **Enter Signature** button to paste your signature URL.`,
             components: [row],
             embeds: [gitcoinPassportEmbed, signerEmbed],
@@ -1082,7 +1082,7 @@ const main = function() {
             .setDescription('Prove your wallet address ownership here.');
 
           await interaction.reply({
-            content: `Click on the Signer.is link below and sign the requested message with the ` +
+            content: `Click on the Signer.is __link below__ and sign the requested message with the ` +
                      `wallet address you want to use to perform your deposit on Goerli to prove ` +
                      `ownership. Once you are done signing, click the *Copy Link* button on Signer.is ` +
                      `and click the **Enter Signature** button to paste your signature URL.`,
