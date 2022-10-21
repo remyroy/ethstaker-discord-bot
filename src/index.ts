@@ -1034,10 +1034,18 @@ const main = function() {
           // Check for new accounts
           const userCreatedAt = interaction.user.createdTimestamp;
           const userExistDuration = DateTime.utc().toMillis() - userCreatedAt;
+          const officialLinksMen = channelMention(process.env.CHEAP_GOERLI_VALIDATOR_CHANNEL_ID as string);
 
           if (userExistDuration < newAccountDelay.toMillis()) {
             await interaction.reply({
-              content: `Your Discord account was just created. We need to restrict access for new accounts because of abuses. Please try again in a few days for ${userMen}.`,
+              content: `Your Discord account was just created. We need to ` +
+                       `restrict access for new accounts because of abuses. ` +
+                       `Please try again in a few days. If you really need ` +
+                       `Goerli ETH, you should be using online faucets like ` +
+                       `those you can find on <https://faucetlink.to/goerli>.\n` +
+                       `New accounts generally do not come directly asking for cheap deposits. ` +
+                       `You might want to check out the guides and tools that exist for configuring ` +
+                       `your machine to run a validator on Goerli in ${officialLinksMen} first for ${userMen}.`,
             });
             reject(`Your Discord account was just created. We need to restrict access for new accounts because of abuses. Please try again in a few days for ${userTag} (${userId})`);
             return;
@@ -1049,7 +1057,14 @@ const main = function() {
 
           if (memberDuration < joinedDiscordServerDelay.toMillis()) {
             await interaction.reply({
-              content: `You just joined the EthStaker Discord server. We need to restrict access for members who just joined because of abuses. Please try again in a few days for ${userMen}.`,
+              content: `You just joined the EthStaker Discord server. We need to ` +
+                       `restrict access for members who just joined because of abuses. ` +
+                       `Please try again in a few days. If you really need ` +
+                       `Goerli ETH, you should be using online faucets like ` +
+                       `those you can find on <https://faucetlink.to/goerli>.\n` +
+                       `New members generally do not come directly asking for cheap deposits. ` +
+                       `You might want to check out the guides and tools that exist for configuring ` +
+                       `your machine to run a validator on Goerli in ${officialLinksMen} first for ${userMen}.`,
             });
             reject(`You just joined the EthStaker Discord server. We need to restrict access for members who just joined because of abuses. Please try again in a few days for ${userTag} (${userId})`);
             return;
