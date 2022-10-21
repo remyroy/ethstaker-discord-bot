@@ -1034,7 +1034,7 @@ const main = function() {
           // Check for new accounts
           const userCreatedAt = interaction.user.createdTimestamp;
           const userExistDuration = DateTime.utc().toMillis() - userCreatedAt;
-          const officialLinksMen = channelMention(process.env.CHEAP_GOERLI_VALIDATOR_CHANNEL_ID as string);
+          const officialLinksMen = channelMention(process.env.OFFICIAL_LINKS_CHANNEL_ID as string);
 
           if (userExistDuration < newAccountDelay.toMillis()) {
             await interaction.reply({
