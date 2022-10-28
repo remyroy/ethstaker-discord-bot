@@ -71,8 +71,16 @@ function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function churn_per_day(active_validators: number) {
-  return Math.max(MIN_PER_EPOCH_CHURN_LIMIT, Math.floor(active_validators / CHURN_LIMIT_QUOTIENT)) * EPOCHS_PER_DAY;
+function churn_limit(active_validators: number | undefined) {
+  let validators = 1;
+  if (active_validators !== undefined){
+    validators = active_validators;
+  }
+  return Math.max(MIN_PER_EPOCH_CHURN_LIMIT, Math.floor(validators / CHURN_LIMIT_QUOTIENT))
+}
+
+function churn_limit_per_day(active_validators: number | undefined) {
+  return churn_limit(active_validators) * EPOCHS_PER_DAY;
 }
 
 const main = function() {
@@ -824,10 +832,6 @@ const main = function() {
           const network = config.network;
           const apiQueueUrl = config.apiQueueUrl;
 
-          // TODO: Get the actual number of active validators
-          const activeValidators = 1;
-          const churnPerDay = churn_per_day(activeValidators);
-
           try {
             await interaction.reply({ content: `Querying beaconcha.in API for ${network} queue details...`, ephemeral: true });
             const response = await axios.get(apiQueueUrl);
@@ -841,7 +845,8 @@ const main = function() {
               status: string,
               data: {
                 beaconchain_entering: number,
-                beaconchain_exiting: number
+                beaconchain_exiting: number,
+                validatorscount?: number,
               }
             };
 
@@ -859,6 +864,11 @@ const main = function() {
             let activationQueueMessage = `The **activation queue** is empty. ${activationNormalProcessingMsg}`;
             let exitQueueMessage = 'The **exit queue** is empty. It should only take a few minutes for a validator to complete a voluntary exit.';
 
+            const churnLimit = churn_limit(queryResponse.data.validatorscount);
+            const churnPerDay = churn_limit_per_day(queryResponse.data.validatorscount);
+
+            const churnText = `(churn limit is ${churnLimit} per epoch or ${churnPerDay} per day with ${queryResponse.data.validatorscount} validators)`;
+
             if (queryResponse.data.beaconchain_entering > 0) {
               const activationDays = queryResponse.data.beaconchain_entering / churnPerDay;
               let activationDuration = Duration.fromObject({ days: activationDays }).shiftTo('days', 'hours').normalize();
@@ -868,9 +878,9 @@ const main = function() {
               const formattedActivationDuration = activationDuration.toHuman();
 
               if (activationDuration.toMillis() <= activationNormalProcessingMaxDuration.toMillis()) {
-                activationQueueMessage = `There are **${queryResponse.data.beaconchain_entering} validators awaiting to be activated**. The queue should clear out in ${formattedActivationDuration} if there is no new deposit. ${activationNormalProcessingMsg}`;
+                activationQueueMessage = `There are **${queryResponse.data.beaconchain_entering} validators awaiting to be activated**. The queue should clear out in ${formattedActivationDuration} if there is no new deposit ${churnText}. ${activationNormalProcessingMsg}`;
               } else {
-                activationQueueMessage = `There are **${queryResponse.data.beaconchain_entering} validators awaiting to be activated**. It should take at least ${formattedActivationDuration} for a new deposit to be processed and an associated validator to be activated.`;
+                activationQueueMessage = `There are **${queryResponse.data.beaconchain_entering} validators awaiting to be activated**. It should take at least ${formattedActivationDuration} for a new deposit to be processed and an associated validator to be activated ${churnText}.`;
               }
             }
             if (queryResponse.data.beaconchain_exiting > 0) {
@@ -881,7 +891,7 @@ const main = function() {
               }
               const formattedExitDuration = exitDuration.toHuman();
 
-              exitQueueMessage = `There are **${queryResponse.data.beaconchain_exiting} validators awaiting to exit** the network. It should take at least ${formattedExitDuration} for a voluntary exit to be processed and an associated validator to leave the network.`;
+              exitQueueMessage = `There are **${queryResponse.data.beaconchain_exiting} validators awaiting to exit** the network. It should take at least ${formattedExitDuration} for a voluntary exit to be processed and an associated validator to leave the network ${churnText}.`;
             }
 
             console.log(`Current queue details for ${network} for @${userTag} (${userId})\n\n- ${activationQueueMessage}\n- ${exitQueueMessage}`);
