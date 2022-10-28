@@ -1496,6 +1496,9 @@ const main = function() {
               existingVerificationWalletRequest.delete(uniformedAddress);
             }
 
+          } catch(err) {
+            console.log('Error in Passport verification.');
+            console.log(err);
           } finally {
             existingVerificationUserRequest.delete(userId);
           }
