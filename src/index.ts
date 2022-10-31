@@ -1339,7 +1339,7 @@ const main = function() {
             }
 
             const confirmedSignatory = utils.verifyMessage( decodedSignature.claimed_message, decodedSignature.signed_message ).toLowerCase();
-            const validSignature = confirmedSignatory === decodedSignature.claimed_signatory;
+            const validSignature = confirmedSignatory.toLowerCase() === decodedSignature.claimed_signatory.toLowerCase();
 
             if (!validSignature) {
               await interaction.followUp({
