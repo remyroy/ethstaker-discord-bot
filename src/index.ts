@@ -1745,8 +1745,12 @@ const main = function() {
 
               await interaction.editReply({ content: `Completed.` });
 
+              const officialLinksMen = channelMention(process.env.OFFICIAL_LINKS_CHANNEL_ID as string);
+
               await interaction.followUp({
-                content: `You can now perform ${cheapDepositCount} cheap deposits on <https://goerli.launchpad.ethstaker.cc/> with your wallet address ${uniformedAddress} for ${userMen}.`,
+                content: `You can now perform ${cheapDepositCount} cheap deposits on <https://goerli.launchpad.ethstaker.cc/> ` +
+                `with your wallet address ${uniformedAddress}. Make sure to check out the guides and tools for configuring your ` +
+                `machine to run a validator on Goerli in ${officialLinksMen} for ${userMen}.`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
               });
               resolve();
