@@ -28,7 +28,7 @@ const minRelativeCheapDepositCount = 5;
 const validatorDepositCost = utils.parseUnits("32", "ether");
 
 const newAccountDelay = Duration.fromObject({ days: 7 });
-const joinedDiscordServerDelay = Duration.fromObject({ days: 2 });
+const joinedDiscordServerDelay = Duration.fromObject({ hours: 20 });
 
 const restrictedRoles = new Set<string>(process.env.ROLE_IDS?.split(','));
 restrictedRoles.add(process.env.PASSPORT_ROLE_ID as string);
