@@ -39,8 +39,8 @@ const commands = [
       .setDescription('Enable or disable auto posting the participation rate.')
       .setRequired(true)),
   new SlashCommandBuilder()
-    .setName('goerli-validator-deposit')
-    .setDescription('Explain the various ways to do a validator deposit on Goerli.')
+    .setName('goerli-msg')
+    .setDescription('Explain how to do a validator deposit or get ETH on Goerli.')
     .addUserOption(option => option
       .setName('user')
       .setDescription('An optional user to ping with the message.')

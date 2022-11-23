@@ -907,7 +907,7 @@ const main = function() {
             await interaction.followUp(`Error while trying to query beaconcha.in API for ${network} queue details for ${userMen}. ${error}`);
           }
 
-        } else if (commandName === 'goerli-validator-deposit') {
+        } else if (commandName === 'goerli-msg') {
           console.log(`${commandName} from ${userTag} (${userId})`);
 
           const cheapGoerliValidatorMention = channelMention(process.env.CHEAP_GOERLI_VALIDATOR_CHANNEL_ID as string);
@@ -920,9 +920,16 @@ const main = function() {
           }
 
           const msg = (
-            `Here is the main way to perform your Goerli validator deposit for ${targetUser}:\n` +
-            `1. Get some cheap Goerli validator deposits on ${cheapGoerliValidatorMention} with the ` +
-            `\`/cheap-goerli-deposit\` slash command. (No verification needed)`
+            `If you want to perform your Goerli validator deposit, use ` +
+            `${cheapGoerliValidatorMention} and the \`/cheap-goerli-deposit\` slash command ` +
+            `(start typing the command and it will show up above your input box). If you need ` +
+            `Goerli ETH for any purpose, check out the great online faucets on ` +
+            `<https://faucetlink.to/goerli>. We don't give out Goerli ETH and we frown upon ` +
+            `anyone buying, selling or trading Goerli ETH so please don't ask for it. Goerli is ` +
+            `in a rough state right now and it's only going downhill from here for users.\n\n` +
+            `If you are a developer working on smart contracts, there are plenty of good ` +
+            `alternatives to Goerli to test on. Hardhat, Sepolia and Gnosis are 3 good ` +
+            `networks/tools you can use to test your smart contracts on right now for ${targetUser}.`
             );
           
           interaction.reply({
