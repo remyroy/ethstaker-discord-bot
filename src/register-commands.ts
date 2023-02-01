@@ -24,6 +24,13 @@ const commands = [
       .setName('address')
       .setDescription('A valid Ethereum address. It can be a full address or an ENS.')
       .setRequired(true)),
+  new SlashCommandBuilder()
+    .setName('request-zhejiang-eth')
+    .setDescription('Request some funds for testing and validator deposit on the Zhejiang testnet.')
+    .addStringOption(option => option
+      .setName('address')
+      .setDescription('A valid Ethereum address. It can be a full address or an ENS.')
+      .setRequired(true)),
 	new SlashCommandBuilder().setName('ping').setDescription('Replies with pong!'),
   new SlashCommandBuilder().setName('queue-mainnet')
     .setDescription('Get validators activation and exit queue details from Mainnet.'),
