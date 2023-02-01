@@ -643,9 +643,9 @@ const main = function() {
 
           try {
 
+            // Check for user role
+            await interaction.reply({ content: 'Checking if you have the proper role...', ephemeral: true });
             if (config.needsVerification) {
-              // Check for user role
-              await interaction.reply({ content: 'Checking if you have the proper role...', ephemeral: true });
               const hasRole = restrictedRoles.size === 0 || (interaction.member?.roles as GuildMemberRoleManager).cache.find((role) => restrictedRoles.has(role.id)) !== undefined;
               if (!hasRole) {
                 const brightIdMention = channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
