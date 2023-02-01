@@ -60,6 +60,7 @@ interface networkConfig {
   wallet: Wallet;
   provider: providers.Provider;
   transactionMutex: Mutex;
+  needsVerification: boolean;
 };
 
 interface queueConfig {
@@ -136,6 +137,7 @@ const main = function() {
       wallet: goerliWallet,
       provider: goerliProvider,
       transactionMutex: goerliTransactionMutex,
+      needsVerification: true,
     });
 
     faucetCommandsConfig.set('request-sepolia-eth', {
@@ -152,7 +154,8 @@ const main = function() {
       requestAmount: utils.parseUnits("1", "ether"),
       wallet: new Wallet(process.env.FAUCET_PRIVATE_KEY as string, sepoliaProvider),
       provider: sepoliaProvider,
-      transactionMutex: sepoliaTransactionMutex
+      transactionMutex: sepoliaTransactionMutex,
+      needsVerification: true,
     });
 
     faucetCommandsConfig.set('request-zhejiang-eth', {
@@ -169,7 +172,8 @@ const main = function() {
       requestAmount: utils.parseUnits("33", "ether"),
       wallet: new Wallet(process.env.FAUCET_PRIVATE_KEY as string, zhejiangProvider),
       provider: zhejiangProvider,
-      transactionMutex: zhejiangTransactionMutex
+      transactionMutex: zhejiangTransactionMutex,
+      needsVerification: false,
     });
 
     // Logging faucet wallet balance and remaining requests
@@ -634,19 +638,21 @@ const main = function() {
 
           try {
 
-            // Check for user role
-            await interaction.reply({ content: 'Checking if you have the proper role...', ephemeral: true });
-            const hasRole = restrictedRoles.size === 0 || (interaction.member?.roles as GuildMemberRoleManager).cache.find((role) => restrictedRoles.has(role.id)) !== undefined;
-            if (!hasRole) {
-              const brightIdMention = channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
-              const passportVerificationMention = channelMention(process.env.PASSPORT_CHANNEL_ID as string);
+            if (config.needsVerification) {
+              // Check for user role
+              await interaction.reply({ content: 'Checking if you have the proper role...', ephemeral: true });
+              const hasRole = restrictedRoles.size === 0 || (interaction.member?.roles as GuildMemberRoleManager).cache.find((role) => restrictedRoles.has(role.id)) !== undefined;
+              if (!hasRole) {
+                const brightIdMention = channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
+                const passportVerificationMention = channelMention(process.env.PASSPORT_CHANNEL_ID as string);
 
-              await interaction.followUp({
-                content: `You cannot use this command without the correct role. Join ${brightIdMention} or ${passportVerificationMention} to get started for ${userMen}.`,
-                allowedMentions: { parse: ['users'], repliedUser: false }
-              });
-              reject(`You cannot use this command without the correct role for @${userTag} (${userId}).`);
-              return;
+                await interaction.followUp({
+                  content: `You cannot use this command without the correct role. Join ${brightIdMention} or ${passportVerificationMention} to get started for ${userMen}.`,
+                  allowedMentions: { parse: ['users'], repliedUser: false }
+                });
+                reject(`You cannot use this command without the correct role for @${userTag} (${userId}).`);
+                return;
+              }
             }
 
             // Check the rate limit for this user
