@@ -624,10 +624,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/luxon@npm:^3.0.1":
-  version: 3.0.1
-  resolution: "@types/luxon@npm:3.0.1"
-  checksum: a81444f9b474ea9b3063ab4cc68b917a2634e38b4e229f86c78c35023a32bf5e8d1044d7c229c011291662c976cb6c4cf109dc3d2077c571790a31779a554178
+"@types/luxon@npm:^3.2.0":
+  version: 3.2.0
+  resolution: "@types/luxon@npm:3.2.0"
+  checksum: 051bfbf841c6ce98728df6538342ce4aaddfcf0ec6e8b473e0195dcfc3ba6b1fe4b3ce17f2ba6d25344f41cb70032c1debe96da9e384e5f6e639665c1e6d368c
   languageName: node
   linkType: hard
 
@@ -1762,7 +1762,7 @@ __metadata:
     "@gitcoinco/passport-sdk-verifier": ../passport-sdk/packages/verifier
     "@tsconfig/node16": ^1.0.3
     "@types/eventsource": ^1.1.9
-    "@types/luxon": ^3.0.1
+    "@types/luxon": ^3.2.0
     "@types/seedrandom": ^3.0.2
     "@types/sqlite3": ^3.1.8
     async-mutex: ^0.4.0
@@ -1776,7 +1776,7 @@ __metadata:
     eventsource: ^2.0.2
     gulp: ^4.0.2
     gulp-typescript: ^6.0.0-alpha.1
-    luxon: ^3.0.4
+    luxon: ^3.2.1
     seedrandom: ^3.0.5
     sqlite3: ^5.1.1
     typescript: ^4.8.3
@@ -2981,10 +2981,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"luxon@npm:^3.0.4":
-  version: 3.0.4
-  resolution: "luxon@npm:3.0.4"
-  checksum: d0908c3951da2a10ccf23040210ead23b0da5366a9d0954e7d5db3560189a7bd703d8af1e00084f197effc9cd7158d1bddf32886d98a70d59ce9bc3fe88bbce0
+"luxon@npm:^3.2.1":
+  version: 3.2.1
+  resolution: "luxon@npm:3.2.1"
+  checksum: 3fa3def2c5f5d3032b4c46220c4da8aeb467ac979888fc9d2557adcd22195f93516b4ad5909a75862bec8dc6ddc0953b0f38e6d2f4a8ab8450ddc531a83cf20d
   languageName: node
   linkType: hard
 

@@ -26,7 +26,7 @@
     "erlpack": "^0.1.4",
     "ethers": "^5.7.1",
     "eventsource": "^2.0.2",
-    "luxon": "^3.0.4",
+    "luxon": "^3.2.1",
     "seedrandom": "^3.0.5",
     "sqlite3": "^5.1.1",
     "utf-8-validate": "^5.0.9",
@@ -35,7 +35,7 @@
   "devDependencies": {
     "@tsconfig/node16": "^1.0.3",
     "@types/eventsource": "^1.1.9",
-    "@types/luxon": "^3.0.1",
+    "@types/luxon": "^3.2.0",
     "@types/seedrandom": "^3.0.2",
     "@types/sqlite3": "^3.1.8",
     "gulp": "^4.0.2",
