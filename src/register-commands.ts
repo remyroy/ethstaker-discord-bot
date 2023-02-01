@@ -36,6 +36,8 @@ const commands = [
     .setDescription('Get validators activation and exit queue details from Mainnet.'),
   new SlashCommandBuilder().setName('queue-goerli')
     .setDescription('Get validators activation and exit queue details from Goerli testnet.'),
+  new SlashCommandBuilder().setName('queue-zhejiang')
+    .setDescription('Get validators activation and exit queue details from Zhejiang testnet.'),
   new SlashCommandBuilder().setName('participation-mainnet')
     .setDescription('Get the current participation rate on Mainnet.'),
   new SlashCommandBuilder()

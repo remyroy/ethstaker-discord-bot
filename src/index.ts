@@ -212,6 +212,11 @@ const main = function() {
       apiQueueUrl: 'https://goerli.beaconcha.in/api/v1/validators/queue'
     });
 
+    queueCommandsConfig.set('queue-zhejiang', {
+      network: 'Zhejiang',
+      apiQueueUrl: 'https://zhejiang.beaconcha.in//api/v1/validators/queue'
+    });
+
     const initDb = function(db: Database, faucetCommandsConfig: Map<string, networkConfig>) {
       return new Promise<void>(async (resolve, reject) => {
         db.serialize(() => {
