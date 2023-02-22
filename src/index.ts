@@ -1298,8 +1298,8 @@ const main = function() {
 
             // Validate signature
             await interaction.reply({ content: `Validating signature...`, ephemeral: true});
-            
-            const signatureRegexMatch = signature.match(/https\:\/\/signer\.is\/#\/verify\/(?<signature>[A-Za-z0-9=]+)/);
+
+            const signatureRegexMatch = signature.match(/https\:\/\/signer\.is(\/#)?\/verify\/(?<signature>[A-Za-z0-9=]+)/);
             if (signatureRegexMatch === null) {
               await interaction.followUp({
                 content: `This is not a valid signature from Signer.is. Make sure to paste the full sharable link after signing the message. Clicking the *Copy link* button and pasting the result is the easiest way. Please try again for ${userMen}`,
@@ -1575,7 +1575,7 @@ const main = function() {
             // Validate signature
             await interaction.reply({ content: `Validating signature...`, ephemeral: true});
             
-            const signatureRegexMatch = signature.match(/https\:\/\/signer\.is\/#\/verify\/(?<signature>[A-Za-z0-9=]+)/);
+            const signatureRegexMatch = signature.match(/https\:\/\/signer\.is(\/#)?\/verify\/(?<signature>[A-Za-z0-9=]+)/);
             if (signatureRegexMatch === null) {
               await interaction.followUp({
                 content: `This is not a valid signature from Signer.is. Make sure to paste the full sharable link after signing the message. Clicking the *Copy link* button and pasting the result is the easiest way. Please try again for ${userMen}`,
