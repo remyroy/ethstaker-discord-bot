@@ -30,6 +30,9 @@ const validatorDepositCost = utils.parseUnits("32", "ether");
 const newAccountDelay = Duration.fromObject({ days: 14 });
 const joinedDiscordServerDelay = Duration.fromObject({ hours: 44 });
 
+const verifiedNewAccountDelay = Duration.fromObject({ days: 7 });
+const verifiedJoinedDiscordServerDelay = Duration.fromObject({ hours: 20 });
+
 const restrictedRoles = new Set<string>(process.env.ROLE_IDS?.split(','));
 restrictedRoles.add(process.env.PASSPORT_ROLE_ID as string);
 
@@ -1082,43 +1085,99 @@ const main = function() {
             }
           }
 
-          // Check for new accounts
           const userCreatedAt = interaction.user.createdTimestamp;
           const userExistDuration = DateTime.utc().toMillis() - userCreatedAt;
           const officialLinksMen = channelMention(process.env.OFFICIAL_LINKS_CHANNEL_ID as string);
 
-          if (userExistDuration < newAccountDelay.toMillis()) {
-            await interaction.reply({
-              content: `Your Discord account was just created. We need to ` +
-                       `restrict access for new accounts because of abuses. ` +
-                       `Please try again in a few days. If you really need ` +
-                       `Goerli ETH, you should be using online faucets like ` +
-                       `those you can find on <https://faucetlink.to/goerli>.\n` +
-                       `New accounts generally do not come directly asking for cheap deposits. ` +
-                       `You might want to check out the guides and tools that exist for configuring ` +
-                       `your machine to run a validator on Goerli in ${officialLinksMen} first for ${userMen}.`,
-            });
-            reject(`Your Discord account was just created. We need to restrict access for new accounts because of abuses. Please try again in a few days for ${userTag} (${userId})`);
-            return;
-          }
-
-          // Check for new guild member
           const memberJoinedAt = (interaction.member as GuildMember).joinedTimestamp;
           const memberDuration = DateTime.utc().toMillis() - (memberJoinedAt as number);
 
-          if (memberDuration < joinedDiscordServerDelay.toMillis()) {
-            await interaction.reply({
-              content: `You just joined the EthStaker Discord server. We need to ` +
-                       `restrict access for members who just joined because of abuses. ` +
-                       `Please try again in a few days. If you really need ` +
-                       `Goerli ETH, you should be using online faucets like ` +
-                       `those you can find on <https://faucetlink.to/goerli>.\n` +
-                       `New members generally do not come directly asking for cheap deposits. ` +
-                       `You might want to check out the guides and tools that exist for configuring ` +
-                       `your machine to run a validator on Goerli in ${officialLinksMen} first for ${userMen}.`,
-            });
-            reject(`You just joined the EthStaker Discord server. We need to restrict access for members who just joined because of abuses. Please try again in a few days for ${userTag} (${userId})`);
-            return;
+          // Check for user role
+          await interaction.reply({ content: 'Checking if you have the proper role and if you recently joined or recently created your account...', ephemeral: true });
+          const hasRole = restrictedRoles.size === 0 || (interaction.member?.roles as GuildMemberRoleManager).cache.find((role) => restrictedRoles.has(role.id)) !== undefined;
+          if (!hasRole) {
+            const brightIdMention = channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
+            const passportVerificationMention = channelMention(process.env.PASSPORT_CHANNEL_ID as string);
+
+            // Check for new accounts
+            if (userExistDuration < newAccountDelay.toMillis()) {
+              await interaction.reply({
+                content: `Your Discord account was just created. We need to ` +
+                        `restrict access for new accounts because of abuses. ` +
+                        `Please try again in a few days. You can speed this up ` +
+                        `by completing one of the verification processes in ` +
+                        `${brightIdMention} or in ${passportVerificationMention}. ` +
+                        `If you desperately need ` +
+                        `Goerli ETH, you should be using online faucets like ` +
+                        `those you can find on <https://faucetlink.to/goerli> but ` +
+                        `know that Goerli is in a rough state right now and it's ` +
+                        `only going downhill from here for users.\n` +
+                        `New accounts generally do not come directly asking for cheap deposits. ` +
+                        `You might want to check out the guides and tools that exist for configuring ` +
+                        `your machine to run a validator on Goerli in ${officialLinksMen} first for ${userMen}.`,
+              });
+              reject(`Your Discord account was just created. We need to restrict access for new accounts because of abuses. Please try again in a few days for ${userTag} (${userId})`);
+              return;
+            }
+
+            // Check for new guild member
+            if (memberDuration < joinedDiscordServerDelay.toMillis()) {
+              await interaction.reply({
+                content: `You just joined the EthStaker Discord server. We need to ` +
+                        `restrict access for members who just joined because of abuses. ` +
+                        `Please try again in a few days. You can speed this up ` +
+                        `by completing one of the verification processes in ` +
+                        `${brightIdMention} or in ${passportVerificationMention}. ` +
+                        `If you desperately need ` +
+                        `Goerli ETH, you should be using online faucets like ` +
+                        `those you can find on <https://faucetlink.to/goerli> but ` +
+                        `know that Goerli is in a rough state right now and it's ` +
+                        `only going downhill from here for users.\n` +
+                        `New members generally do not come directly asking for cheap deposits. ` +
+                        `You might want to check out the guides and tools that exist for configuring ` +
+                        `your machine to run a validator on Goerli in ${officialLinksMen} first for ${userMen}.`,
+              });
+              reject(`You just joined the EthStaker Discord server. We need to restrict access for members who just joined because of abuses. Please try again in a few days for ${userTag} (${userId})`);
+              return;
+            }
+          } else {
+
+            // Check for new accounts
+            if (userExistDuration < verifiedNewAccountDelay.toMillis()) {
+              await interaction.reply({
+                content: `Your Discord account was just created. We need to ` +
+                        `restrict access for new accounts because of abuses. ` +
+                        `Please try again in a few days. If you desperately need ` +
+                        `Goerli ETH, you should be using online faucets like ` +
+                        `those you can find on <https://faucetlink.to/goerli> but ` +
+                        `know that Goerli is in a rough state right now and it's ` +
+                        `only going downhill from here for users.\n` +
+                        `New accounts generally do not come directly asking for cheap deposits. ` +
+                        `You might want to check out the guides and tools that exist for configuring ` +
+                        `your machine to run a validator on Goerli in ${officialLinksMen} first for ${userMen}.`,
+              });
+              reject(`Your verified Discord account was just created. We need to restrict access for new accounts because of abuses. Please try again in a few days for ${userTag} (${userId})`);
+              return;
+            }
+
+            // Check for new guild member
+            if (memberDuration < verifiedJoinedDiscordServerDelay.toMillis()) {
+              await interaction.reply({
+                content: `You just joined the EthStaker Discord server. We need to ` +
+                        `restrict access for members who just joined because of abuses. ` +
+                        `Please try again in a few days. If you desperately need ` +
+                        `Goerli ETH, you should be using online faucets like ` +
+                        `those you can find on <https://faucetlink.to/goerli> but ` +
+                        `know that Goerli is in a rough state right now and it's ` +
+                        `only going downhill from here for users.\n` +
+                        `New members generally do not come directly asking for cheap deposits. ` +
+                        `You might want to check out the guides and tools that exist for configuring ` +
+                        `your machine to run a validator on Goerli in ${officialLinksMen} first for ${userMen}.`,
+              });
+              reject(`You just joined the EthStaker Discord server with verification. We need to restrict access for members who just joined because of abuses. Please try again in a few days for ${userTag} (${userId})`);
+              return;
+            }
+
           }
 
           // Check if the user already has been given cheap deposits.
@@ -1147,14 +1206,13 @@ const main = function() {
             .setURL(signer_is_url)
             .setDescription('Prove your wallet address ownership here. You **MUST** use this link as it contains the message you need to sign.');
 
-          await interaction.reply({
+          await interaction.editReply({
             content: `Click on the Signer.is __link below__ and sign the requested message with the ` +
                      `wallet address you want to use to perform your deposit on Goerli to prove ` +
                      `ownership. Once you are done signing, click the *Copy Link* button on Signer.is ` +
                      `and click the **Enter Signature** button to paste your signature URL.`,
             components: [row],
-            embeds: [signerEmbed],
-            ephemeral: true
+            embeds: [signerEmbed]
           });
 
         } else {
