@@ -1093,13 +1093,16 @@ const main = function() {
           const memberDuration = DateTime.utc().toMillis() - (memberJoinedAt as number);
 
           // Check for user role
-          await interaction.reply({ content: 'Checking if you have the proper role and if you recently joined or recently created your account...', ephemeral: true });
+          await interaction.reply({ content: 'Checking if you have the proper role to speed up delay period...', ephemeral: true });
           const hasRole = restrictedRoles.size === 0 || (interaction.member?.roles as GuildMemberRoleManager).cache.find((role) => restrictedRoles.has(role.id)) !== undefined;
           if (!hasRole) {
             const brightIdMention = channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
             const passportVerificationMention = channelMention(process.env.PASSPORT_CHANNEL_ID as string);
 
             // Check for new accounts
+            await interaction.editReply({
+              content: `Checking if you have a new account...`
+            });
             if (userExistDuration < newAccountDelay.toMillis()) {
               await interaction.followUp({
                 content: `Your Discord account was just created. We need to ` +
@@ -1121,6 +1124,9 @@ const main = function() {
             }
 
             // Check for new guild member
+            await interaction.editReply({
+              content: `Checking if you recently joined the EthStaker Discord server...`
+            });
             if (memberDuration < joinedDiscordServerDelay.toMillis()) {
               await interaction.followUp({
                 content: `You just joined the EthStaker Discord server. We need to ` +
@@ -1143,6 +1149,9 @@ const main = function() {
           } else {
 
             // Check for new accounts
+            await interaction.editReply({
+              content: `Checking if you have a new account...`
+            });
             if (userExistDuration < verifiedNewAccountDelay.toMillis()) {
               await interaction.followUp({
                 content: `Your Discord account was just created. We need to ` +
@@ -1161,6 +1170,9 @@ const main = function() {
             }
 
             // Check for new guild member
+            await interaction.editReply({
+              content: `Checking if you recently joined the EthStaker Discord server...`
+            });
             if (memberDuration < verifiedJoinedDiscordServerDelay.toMillis()) {
               await interaction.followUp({
                 content: `You just joined the EthStaker Discord server. We need to ` +
@@ -1181,6 +1193,9 @@ const main = function() {
           }
 
           // Check if the user already has been given cheap deposits.
+          await interaction.editReply({
+            content: `Checking if you already received your cheap deposits...`
+          });
           const hasCheapDeposits = await isCheapDepositsUserAlreadyUsed(userId);
           if (hasCheapDeposits) {
             await interaction.followUp({
