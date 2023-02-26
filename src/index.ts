@@ -1101,7 +1101,7 @@ const main = function() {
 
             // Check for new accounts
             if (userExistDuration < newAccountDelay.toMillis()) {
-              await interaction.reply({
+              await interaction.followUp({
                 content: `Your Discord account was just created. We need to ` +
                         `restrict access for new accounts because of abuses. ` +
                         `Please try again in a few days. You can speed this up ` +
@@ -1122,7 +1122,7 @@ const main = function() {
 
             // Check for new guild member
             if (memberDuration < joinedDiscordServerDelay.toMillis()) {
-              await interaction.reply({
+              await interaction.followUp({
                 content: `You just joined the EthStaker Discord server. We need to ` +
                         `restrict access for members who just joined because of abuses. ` +
                         `Please try again in a few days. You can speed this up ` +
@@ -1144,7 +1144,7 @@ const main = function() {
 
             // Check for new accounts
             if (userExistDuration < verifiedNewAccountDelay.toMillis()) {
-              await interaction.reply({
+              await interaction.followUp({
                 content: `Your Discord account was just created. We need to ` +
                         `restrict access for new accounts because of abuses. ` +
                         `Please try again in a few days. If you desperately need ` +
@@ -1162,7 +1162,7 @@ const main = function() {
 
             // Check for new guild member
             if (memberDuration < verifiedJoinedDiscordServerDelay.toMillis()) {
-              await interaction.reply({
+              await interaction.followUp({
                 content: `You just joined the EthStaker Discord server. We need to ` +
                         `restrict access for members who just joined because of abuses. ` +
                         `Please try again in a few days. If you desperately need ` +
@@ -1183,7 +1183,7 @@ const main = function() {
           // Check if the user already has been given cheap deposits.
           const hasCheapDeposits = await isCheapDepositsUserAlreadyUsed(userId);
           if (hasCheapDeposits) {
-            await interaction.reply({
+            await interaction.followUp({
               content: `You already received your cheap deposits. We cannot provide you with more at this time for ${userMen}.`,
             });
             reject(`You already received your cheap deposits. We cannot provide you with more at this time for ${userTag} (${userId})`);
