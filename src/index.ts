@@ -1864,7 +1864,10 @@ const main = function() {
               await interaction.followUp({
                 content: `You can now perform ${cheapDepositCount} cheap deposits on <https://goerli.launchpad.ethstaker.cc/> ` +
                 `with your wallet address ${uniformedAddress}. Make sure to check out the guides and tools for configuring your ` +
-                `machine to run a validator on Goerli in ${officialLinksMen} for ${userMen}.`,
+                `machine to run a validator on Goerli in ${officialLinksMen}.\n\nYou **must** set your withdrawal address to ` +
+                `\`0x4D496CcC28058B1D74B7a19541663E21154f9c84\` when creating your validator keys and your deposit file in order ` +
+                `to use this process and to complete your deposit. This is only required for this launchpad. When on Mainnet, you ` +
+                `should use a withdrawal address you control if you want to use one for ${userMen}.`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
               });
               resolve();
