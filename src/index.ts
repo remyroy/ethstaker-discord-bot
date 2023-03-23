@@ -663,6 +663,42 @@ const main = function() {
               }
             }
 
+            const userCreatedAt = interaction.user.createdTimestamp;
+            const userExistDuration = DateTime.utc().toMillis() - userCreatedAt;
+
+            const memberJoinedAt = (interaction.member as GuildMember).joinedTimestamp;
+            const memberDuration = DateTime.utc().toMillis() - (memberJoinedAt as number);
+
+            // Check for new accounts
+            await interaction.editReply({
+              content: `Checking if you have a new account...`
+            });
+            if (userExistDuration < newAccountDelay.toMillis()) {
+              await interaction.followUp({
+                content: `Your Discord account was just created. We need to ` +
+                        `restrict access for this command (${commandName}) for new accounts ` +
+                        `because of abuses. ` +
+                        `Please try again in a few days for ${userMen}.`,
+              });
+              reject(`Your Discord account was just created. We need to restrict access for new accounts because of abuses. Please try again in a few days for ${userTag} (${userId})`);
+              return;
+            }
+
+            // Check for new guild member
+            await interaction.editReply({
+              content: `Checking if you recently joined the EthStaker Discord server...`
+            });
+            if (memberDuration < joinedDiscordServerDelay.toMillis()) {
+              await interaction.followUp({
+                content: `You just joined the EthStaker Discord server. We need to ` +
+                        `restrict access for this command (${commandName}) for members ` +
+                        `who just joined because of abuses. ` +
+                        `Please try again in a few days for ${userMen}.`,
+              });
+              reject(`You just joined the EthStaker Discord server. We need to restrict access for members who just joined because of abuses. Please try again in a few days for ${userTag} (${userId})`);
+              return;
+            }
+
             // Check the rate limit for this user
             const tableName = config.requestTable;
             const rateLimitDuration = config.rateLimitDuration;
