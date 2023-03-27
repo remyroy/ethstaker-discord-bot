@@ -33,6 +33,8 @@ const joinedDiscordServerDelay = Duration.fromObject({ hours: 44 });
 const verifiedNewAccountDelay = Duration.fromObject({ days: 7 });
 const verifiedJoinedDiscordServerDelay = Duration.fromObject({ hours: 20 });
 
+const cheapDepositDelay = Duration.fromObject({ days: 60 });
+
 const restrictedRoles = new Set<string>(process.env.ROLE_IDS?.split(','));
 restrictedRoles.add(process.env.PASSPORT_ROLE_ID as string);
 
@@ -336,6 +338,11 @@ const main = function() {
       console.error(reason);
     });
 
+    interface lastCheapDepositRequest {
+      walletAddress: string,
+      lastRequested: number;
+    }
+
     interface lastRequest {
       lastRequested: number;
       lastAddress: string;
@@ -350,25 +357,26 @@ const main = function() {
     let currentParticipationRateDate: number | null = null;
     const twoThird = 2 / 3;
 
-    const isCheapDepositsUserAlreadyUsed = function(userId: string) {
-      return new Promise<boolean>(async (resolve, reject) => {
-        db.get(`SELECT userId from cheap_deposit WHERE userId = ?;`, userId, (error: Error | null, row: any ) => {
+    const getLastCheapDepositRequest = function(userId: string) {
+      return new Promise<lastCheapDepositRequest | null>(async (resolve, reject) => {
+        db.get(`SELECT walletAddress, lastRequested from cheap_deposit WHERE userId = ?;`, userId, (error: Error | null, row: any ) => {
           if (error !== null) {
             reject(error);
             return;
           }
           if (row === undefined) {
-            resolve(false);
+            resolve(null);
           } else {
-            resolve(true);
+            const value = row as lastCheapDepositRequest;
+            resolve(value);
           }
         });
       });
-    }
+    };
 
-    const isCheapDepositsWalletAlreadyUsed = function(walletAddress: string) {
+    const isCheapDepositsWalletAlreadyUsed = function(walletAddress: string, userId: string) {
       return new Promise<boolean>(async (resolve, reject) => {
-        db.get(`SELECT walletAddress from cheap_deposit WHERE walletAddress = ?;`, walletAddress, (error: Error | null, row: any ) => {
+        db.get(`SELECT walletAddress from cheap_deposit WHERE walletAddress = ? and userId != ?;`, walletAddress, userId, (error: Error | null, row: any ) => {
           if (error !== null) {
             reject(error);
             return;
@@ -385,14 +393,35 @@ const main = function() {
     const storeCheapDeposits = function(walletAddress: string, userId: string) {
       return new Promise<void>(async (resolve, reject) => {
         db.serialize(() => {
-          const callback = function (this: RunResult, error: Error | null) {
+          let doInsert = true;
+          db.get(`SELECT walletAddress, lastRequested from cheap_deposit WHERE userId = ?;`, userId, (error: Error | null, row: any ) => {
             if (error !== null) {
               reject(error);
+              return;
             }
-            resolve();
-          };
-          const lastRequested = Math.floor(DateTime.utc().toMillis() / 1000);
-          db.run(`INSERT INTO cheap_deposit(walletAddress, userId, lastRequested) VALUES(?, ?, ?);`, walletAddress, userId, lastRequested, callback);
+            if (row !== undefined) {
+              doInsert = false;
+            }
+
+            const lastRequested = Math.floor(DateTime.utc().toMillis() / 1000);
+            if (doInsert) {
+              db.run(`INSERT INTO cheap_deposit(walletAddress, userId, lastRequested) VALUES(?, ?, ?);`, walletAddress, userId, lastRequested, (error: Error | null) => {
+                if (error !== null) {
+                  reject(error);
+                  return;
+                }
+                resolve();
+              });
+            } else {
+              db.run(`UPDATE cheap_deposit SET walletAddress = ?, lastRequested = ? WHERE userId = ?;`, walletAddress, lastRequested, (error: Error | null) => {
+                if (error !== null) {
+                  reject(error);
+                  return;
+                }
+                resolve();
+              });
+            }
+          });
         });
       });
     };
@@ -1228,17 +1257,41 @@ const main = function() {
 
           }
 
-          // Check if the user already has been given cheap deposits.
+          // Check if the user already has been given cheap deposits recently.
           await interaction.editReply({
-            content: `Checking if you already received your cheap deposits...`
+            content: 'Checking if you are rate-limited...'
           });
-          const hasCheapDeposits = await isCheapDepositsUserAlreadyUsed(userId);
-          if (hasCheapDeposits) {
-            await interaction.followUp({
-              content: `You already received your cheap deposits. We cannot provide you with more at this time for ${userMen}.`,
-            });
-            reject(`You already received your cheap deposits. We cannot provide you with more at this time for ${userTag} (${userId})`);
-            return;
+          const lastRequest = await getLastCheapDepositRequest(userId);
+          let newRequestPart = '';
+          if (lastRequest !== null) {
+            const dtLastRequested = DateTime.fromMillis(lastRequest.lastRequested * 1000);
+            const dtRequestAvailable = dtLastRequested.plus(cheapDepositDelay);
+
+            let durRequestAvailable = dtRequestAvailable.diff(DateTime.utc()).shiftTo('days', 'hours').normalize();
+            if (durRequestAvailable.days === 0) {
+              durRequestAvailable = durRequestAvailable.shiftTo('hours', 'minutes');
+            }
+            const formattedDuration = durRequestAvailable.toHuman();
+
+            if (DateTime.utc() < dtRequestAvailable) {
+              await interaction.followUp({
+                content: `You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for ${userMen}.`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for @${userTag} (${userId}).`);
+              return;
+            } else {
+              let negDurRequestAvailable = durRequestAvailable.negate().shiftTo('days', 'hours').normalize();
+              if (negDurRequestAvailable.days === 0) {
+                negDurRequestAvailable = negDurRequestAvailable.shiftTo('hours', 'minutes');
+              }
+              const newRequestFormattedDuration = negDurRequestAvailable.toHuman();
+
+              newRequestPart = ` Your new request was available ${newRequestFormattedDuration} ago.`;
+              if (negDurRequestAvailable.toMillis() <= quickNewRequest.toMillis()) {
+                newRequestPart = newRequestPart.concat(` That was a quick new request! You should consider leaving some for the others.`);
+              }
+            }
           }
 
           const my_request = { requested_message: `My Discord user ${userTag} (${userId}) has access to this wallet address.` };
@@ -1655,14 +1708,38 @@ const main = function() {
 
         } else if (interaction.customId === 'ownerCheapDepositsVerify') {
 
-          // Check if the user already has been given cheap deposits.
-          const hasCheapDeposits = await isCheapDepositsUserAlreadyUsed(userId);
-          if (hasCheapDeposits) {
-            await interaction.reply({
-              content: `You already received your cheap deposits. We cannot provide you with more at this time for ${userMen}.`,
-            });
-            reject(`You already received your cheap deposits. We cannot provide you with more at this time for ${userTag} (${userId})`);
-            return;
+          // Check if the user already has been given cheap deposits recently.
+          const lastRequest = await getLastCheapDepositRequest(userId);
+          let newRequestPart = '';
+          if (lastRequest !== null) {
+            const dtLastRequested = DateTime.fromMillis(lastRequest.lastRequested * 1000);
+            const dtRequestAvailable = dtLastRequested.plus(cheapDepositDelay);
+
+            let durRequestAvailable = dtRequestAvailable.diff(DateTime.utc()).shiftTo('days', 'hours').normalize();
+            if (durRequestAvailable.days === 0) {
+              durRequestAvailable = durRequestAvailable.shiftTo('hours', 'minutes');
+            }
+            const formattedDuration = durRequestAvailable.toHuman();
+
+            if (DateTime.utc() < dtRequestAvailable) {
+              await interaction.followUp({
+                content: `You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for ${userMen}.`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for @${userTag} (${userId}).`);
+              return;
+            } else {
+              let negDurRequestAvailable = durRequestAvailable.negate().shiftTo('days', 'hours').normalize();
+              if (negDurRequestAvailable.days === 0) {
+                negDurRequestAvailable = negDurRequestAvailable.shiftTo('hours', 'minutes');
+              }
+              const newRequestFormattedDuration = negDurRequestAvailable.toHuman();
+
+              newRequestPart = ` Your new request was available ${newRequestFormattedDuration} ago.`;
+              if (negDurRequestAvailable.toMillis() <= quickNewRequest.toMillis()) {
+                newRequestPart = newRequestPart.concat(` That was a quick new request! You should consider leaving some for the others.`);
+              }
+            }
           }
 
           // Mutex on User ID
@@ -1807,7 +1884,7 @@ const main = function() {
               // Verify if that wallet address is not already associated with another Discord user
               await interaction.editReply({ content: `Verifying if this wallet address was already used by another Discord user...` });
 
-              const walletAlreadyUsed = await isCheapDepositsWalletAlreadyUsed(uniformedAddress);
+              const walletAlreadyUsed = await isCheapDepositsWalletAlreadyUsed(uniformedAddress, userId);
 
               if (walletAlreadyUsed) {
                 await interaction.followUp({
@@ -1958,14 +2035,38 @@ const main = function() {
 
         } else if (interaction.customId === 'sendSignatureForCheapDeposits') {
 
-          // Check if the user already has been given cheap deposits.
-          const hasCheapDeposits = await isCheapDepositsUserAlreadyUsed(userId);
-          if (hasCheapDeposits) {
-            await interaction.reply({
-              content: `You already received your cheap deposits. We cannot provide you with more at this time for ${userMen}.`,
-            });
-            reject(`You already received your cheap deposits. We cannot provide you with more at this time for ${userTag} (${userId})`);
-            return;
+          // Check if the user already has been given cheap deposits recently.
+          const lastRequest = await getLastCheapDepositRequest(userId);
+          let newRequestPart = '';
+          if (lastRequest !== null) {
+            const dtLastRequested = DateTime.fromMillis(lastRequest.lastRequested * 1000);
+            const dtRequestAvailable = dtLastRequested.plus(cheapDepositDelay);
+
+            let durRequestAvailable = dtRequestAvailable.diff(DateTime.utc()).shiftTo('days', 'hours').normalize();
+            if (durRequestAvailable.days === 0) {
+              durRequestAvailable = durRequestAvailable.shiftTo('hours', 'minutes');
+            }
+            const formattedDuration = durRequestAvailable.toHuman();
+
+            if (DateTime.utc() < dtRequestAvailable) {
+              await interaction.followUp({
+                content: `You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for ${userMen}.`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for @${userTag} (${userId}).`);
+              return;
+            } else {
+              let negDurRequestAvailable = durRequestAvailable.negate().shiftTo('days', 'hours').normalize();
+              if (negDurRequestAvailable.days === 0) {
+                negDurRequestAvailable = negDurRequestAvailable.shiftTo('hours', 'minutes');
+              }
+              const newRequestFormattedDuration = negDurRequestAvailable.toHuman();
+
+              newRequestPart = ` Your new request was available ${newRequestFormattedDuration} ago.`;
+              if (negDurRequestAvailable.toMillis() <= quickNewRequest.toMillis()) {
+                newRequestPart = newRequestPart.concat(` That was a quick new request! You should consider leaving some for the others.`);
+              }
+            }
           }
 
           const modal = new ModalBuilder()
