@@ -1661,7 +1661,7 @@ const main = function() {
               await interaction.editReply({ content: `Completed.` });
 
               await interaction.followUp({
-                content: `You are now verified with Gitcoin Passport (score: ${passportScore}) for wallet address ${uniformedAddress} for ${userMen}.`,
+                content: `You are now verified with Gitcoin Passport (score: ${passportScore}) with wallet address ${uniformedAddress} for ${userMen}.`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
               });
 
