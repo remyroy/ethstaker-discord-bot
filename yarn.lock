@@ -490,34 +490,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@gitcoinco/passport-sdk-reader@npm:^0.1.4":
-  version: 0.1.4
-  resolution: "@gitcoinco/passport-sdk-reader@npm:0.1.4"
-  dependencies:
-    "@gitcoinco/passport-sdk-types": ^0.2.0
-    tulons: ^0.0.7
-  checksum: a7fe75c9e3040d1934d6c9fae984bff341681c313132e959bd221ff8b23948910cd051d8cded388e8daa0742f7429426c5c9594eb0e24eac317cd15feb65ee06
-  languageName: node
-  linkType: hard
-
-"@gitcoinco/passport-sdk-types@npm:^0.2.0":
-  version: 0.2.0
-  resolution: "@gitcoinco/passport-sdk-types@npm:0.2.0"
-  checksum: 04b0b91e1477e542a8f84614f350fe47673a17307991cccdf7fc4e9d9bb55ef4b7247c0afa945547e5ecc25a31d37459d0f8c790d4843972979bb3afc88b2467
-  languageName: node
-  linkType: hard
-
-"@gitcoinco/passport-sdk-verifier@file:../passport-sdk/packages/verifier::locator=ethstaker-discord-bot%40workspace%3A.":
-  version: 0.2.1
-  resolution: "@gitcoinco/passport-sdk-verifier@file:../passport-sdk/packages/verifier#../passport-sdk/packages/verifier::hash=319f72&locator=ethstaker-discord-bot%40workspace%3A."
-  dependencies:
-    "@gitcoinco/passport-sdk-reader": ^0.1.4
-    "@gitcoinco/passport-sdk-types": ^0.2.0
-    "@spruceid/didkit-wasm-node": ^0.2.1
-  checksum: 13cdd81838586ec245454b6dc75b773e1fd08b16d075f645d57fdf658462e4ffb93dcae079c3153ba413a493c0325e90c8dae84cde0eed92bae5636f7d1c7dd3
-  languageName: node
-  linkType: hard
-
 "@mapbox/node-pre-gyp@npm:^1.0.0":
   version: 1.0.9
   resolution: "@mapbox/node-pre-gyp@npm:1.0.9"
@@ -598,13 +570,6 @@ __metadata:
   version: 3.4.0
   resolution: "@sapphire/snowflake@npm:3.4.0"
   checksum: 556b7001f33d6edbbbcbca46f6abfa56c732a29e78b693161e358688e688edcb012d2c1bc944e7ffb41bd6c9950d261bc73f95656dc01643361a218b4f5ab985
-  languageName: node
-  linkType: hard
-
-"@spruceid/didkit-wasm-node@npm:^0.2.1":
-  version: 0.2.1
-  resolution: "@spruceid/didkit-wasm-node@npm:0.2.1"
-  checksum: 0054978f56b6d63ccbb4aa234fcff7006a284af101e6b6844e0aab8991926059075fb70a1b7c2b6697f16a76b43eb5df9b930b681095962b18866c68063b9cde
   languageName: node
   linkType: hard
 
@@ -972,16 +937,6 @@ __metadata:
   bin:
     atob: bin/atob.js
   checksum: dfeeeb70090c5ebea7be4b9f787f866686c645d9f39a0d184c817252d0cf08455ed25267d79c03254d3be1f03ac399992a792edcd5ffb9c91e097ab5ef42833a
-  languageName: node
-  linkType: hard
-
-"axios@npm:^0.27.2":
-  version: 0.27.2
-  resolution: "axios@npm:0.27.2"
-  dependencies:
-    follow-redirects: ^1.14.9
-    form-data: ^4.0.0
-  checksum: 38cb7540465fe8c4102850c4368053c21683af85c5fdf0ea619f9628abbcb59415d1e22ebc8a6390d2bbc9b58a9806c874f139767389c862ec9b772235f06854
   languageName: node
   linkType: hard
 
@@ -1792,8 +1747,6 @@ __metadata:
   dependencies:
     "@discordjs/builders": ^1.5.0
     "@discordjs/rest": ^1.6.0
-    "@gitcoinco/passport-sdk-types": ^0.2.0
-    "@gitcoinco/passport-sdk-verifier": ../passport-sdk/packages/verifier
     "@tsconfig/node16": ^1.0.3
     "@types/eventsource": ^1.1.9
     "@types/luxon": ^3.2.0
@@ -1812,7 +1765,7 @@ __metadata:
     gulp-typescript: ^6.0.0-alpha.1
     luxon: ^3.2.1
     seedrandom: ^3.0.5
-    sqlite3: ^5.1.1
+    sqlite3: ^5.1.6
     typescript: ^4.8.3
     utf-8-validate: ^5.0.9
     zlib-sync: ^0.1.7
@@ -2018,16 +1971,6 @@ __metadata:
     inherits: ^2.0.3
     readable-stream: ^2.3.6
   checksum: 42e07747f83bcd4e799da802e621d6039787749ffd41f5517f8c4f786ee967e31ba32b09f8b28a9c6f67bd4f5346772e604202df350e8d99f4141771bae31279
-  languageName: node
-  linkType: hard
-
-"follow-redirects@npm:^1.14.9":
-  version: 1.15.1
-  resolution: "follow-redirects@npm:1.15.1"
-  peerDependenciesMeta:
-    debug:
-      optional: true
-  checksum: 6aa4e3e3cdfa3b9314801a1cd192ba756a53479d9d8cca65bf4db3a3e8834e62139245cd2f9566147c8dfe2efff1700d3e6aefd103de4004a7b99985e71dd533
   languageName: node
   linkType: hard
 
@@ -4364,9 +4307,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"sqlite3@npm:^5.1.1":
-  version: 5.1.1
-  resolution: "sqlite3@npm:5.1.1"
+"sqlite3@npm:^5.1.6":
+  version: 5.1.6
+  resolution: "sqlite3@npm:5.1.6"
   dependencies:
     "@mapbox/node-pre-gyp": ^1.0.0
     node-addon-api: ^4.2.0
@@ -4380,7 +4323,7 @@ __metadata:
   peerDependenciesMeta:
     node-gyp:
       optional: true
-  checksum: aaedb724b3b3df8c5a5f2df0b1691b8d0c19a93407c792796ef736f173198c28fdd31ddb414e7bd52d82717233abb183fc161ab515b081d6f640c92ce84d3b7a
+  checksum: ea640628843e37a63dfb4bd2c8429dbd7aab845c1a8204574dca3aac61486ab65bc0abfd99b48f1cead1f783171c6111c0cc4115335d5b95bb0b4eb44db162d5
   languageName: node
   linkType: hard
 
@@ -4670,15 +4613,6 @@ __metadata:
   version: 2.5.0
   resolution: "tslib@npm:2.5.0"
   checksum: ae3ed5f9ce29932d049908ebfdf21b3a003a85653a9a140d614da6b767a93ef94f460e52c3d787f0e4f383546981713f165037dc2274df212ea9f8a4541004e1
-  languageName: node
-  linkType: hard
-
-"tulons@npm:^0.0.7":
-  version: 0.0.7
-  resolution: "tulons@npm:0.0.7"
-  dependencies:
-    axios: ^0.27.2
-  checksum: f5d11dab2e349fdb9940f5988c743a2e4bd7d6f45218d412febfec3b8f9c19202ae9c29c6154b26c8afc74c2ae349f0adc8fc961ab5d534e271006d2d1f6e418
   languageName: node
   linkType: hard
 

@@ -9,8 +9,6 @@ import {
 import { BigNumber, providers, utils, Wallet, Contract } from 'ethers';
 import { Database, RunResult } from 'sqlite3';
 
-import { Passport } from '@gitcoinco/passport-sdk-types';
-
 import { MessageFlags } from 'discord-api-types/v9';
 import { DateTime, Duration } from 'luxon';
 
@@ -74,8 +72,6 @@ function churn_per_day(active_validators: number) {
 
 const main = function() {
   return new Promise<void>(async (mainResolve, mainReject) => {
-
-    const PassportVerifier = (await import("@gitcoinco/passport-sdk-verifier")).PassportVerifier;
 
     const mainnetProvider = new providers.InfuraProvider(providers.getNetwork('mainnet'), process.env.INFURA_API_KEY);
 
@@ -1336,7 +1332,7 @@ const main = function() {
               // Verify the associated Gitcoin Passport
               await interaction.editReply({ content: `Verifying the associated Gitcoin Passport...` });
 
-              let passport: Passport | boolean = false;
+              /*let passport: Passport | boolean = false;
 
               try {
                 const verifier = new PassportVerifier();
@@ -1431,7 +1427,9 @@ const main = function() {
                 }
               }).catch((reason) => {
                 reject(reason);
-              });
+              });*/
+
+              await interaction.editReply({ content: `Completed.` });
 
             } finally {
               existingVerificationWalletRequest.delete(uniformedAddress);

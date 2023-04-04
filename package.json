@@ -15,8 +15,6 @@
   "dependencies": {
     "@discordjs/builders": "^1.5.0",
     "@discordjs/rest": "^1.6.0",
-    "@gitcoinco/passport-sdk-types": "^0.2.0",
-    "@gitcoinco/passport-sdk-verifier": "../passport-sdk/packages/verifier",
     "async-mutex": "^0.4.0",
     "axios": "^1.3.0",
     "bufferutil": "^4.0.7",
@@ -28,7 +26,7 @@
     "eventsource": "^2.0.2",
     "luxon": "^3.2.1",
     "seedrandom": "^3.0.5",
-    "sqlite3": "^5.1.1",
+    "sqlite3": "^5.1.6",
     "utf-8-validate": "^5.0.9",
     "zlib-sync": "^0.1.7"
   },

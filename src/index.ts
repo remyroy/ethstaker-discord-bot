@@ -9,8 +9,6 @@ import {
 import { BigNumber, providers, utils, Wallet, Contract } from 'ethers';
 import { Database, RunResult } from 'sqlite3';
 
-import { Passport } from '@gitcoinco/passport-sdk-types';
-
 import { MessageFlags } from 'discord-api-types/v9';
 import { DateTime, Duration } from 'luxon';
 import { Mutex } from 'async-mutex';
@@ -43,6 +41,9 @@ const passportScoreThreshold = Number(process.env.PASSPORT_SCORE_THRESHOLD);
 const EPOCHS_PER_DAY = 225;
 const MIN_PER_EPOCH_CHURN_LIMIT = 4;
 const CHURN_LIMIT_QUOTIENT = 65536;
+
+const PASSPORT_SCORE_URI = `https://api.scorer.gitcoin.co/registry/score/${process.env.GITCOIN_PASSPORT_SCORER_ID}/`;
+const SUBMIT_PASSPORT_URI = 'https://api.scorer.gitcoin.co/registry/submit-passport';
 
 const depositProxyContractAddress = process.env.PROXY_GOERLI_DEPOSIT_CONTRACT as string;
 const depositProxyContractAbi = [
@@ -91,8 +92,6 @@ function churn_limit_per_day(active_validators: number | undefined) {
 
 const main = function() {
   return new Promise<void>(async (mainResolve, mainReject) => {
-
-    const PassportVerifier = (await import("@gitcoinco/passport-sdk-verifier")).PassportVerifier;
 
     const mainnetProvider = new providers.InfuraProvider(providers.getNetwork('mainnet'), process.env.INFURA_API_KEY);
 
@@ -452,54 +451,6 @@ const main = function() {
             resolve(this.lastID);
           };
           db.run(`INSERT INTO passport(walletAddress, userId) VALUES(?, ?);`, walletAddress, userId, callback);
-        });
-      });
-    };
-
-    interface stampHash {
-      provider: string,
-      hash: string
-    };
-
-    const isStampAlreadyUsed = function(sHash: stampHash) {
-      return new Promise<boolean>(async (resolve, reject) => {
-        db.get(`SELECT provider, hash from passport_stamp WHERE provider = ? AND hash = ?;`, sHash.provider, sHash.hash, (error: Error | null, row: any ) => {
-          if (error !== null) {
-            reject(error);
-            return;
-          }
-          if (row === undefined) {
-            resolve(false);
-          } else {
-            resolve(true);
-          }
-        });
-      });
-    };
-
-    const storeStamps = function(passportId: number, sHashes: Array<stampHash>) {
-      return new Promise<boolean>(async (resolve, reject) => {
-        db.serialize(() => {
-          if (sHashes.length <= 0) {
-            resolve(false);
-            return;
-          }
-          const templateArray = Array<string>(sHashes.length).fill('(?, ?, ?)');
-          const valuesTemplate = templateArray.join(',');
-
-          const values = Array<any>();
-          for (const stamp of sHashes) {
-            values.push(passportId);
-            values.push(stamp.provider);
-            values.push(stamp.hash);
-          }
-          const callback = function(this: RunResult, error: Error | null) {
-            if (error !== null) {
-              reject(error);
-            }
-            resolve(true);
-          };
-          db.run(`INSERT INTO passport_stamp (passport, provider, hash) VALUES${valuesTemplate};`, ...values, callback);
         });
       });
     };
@@ -1596,77 +1547,104 @@ const main = function() {
               }
 
               // Verify the associated Gitcoin Passport
-              await interaction.editReply({ content: `Verifying the associated Gitcoin Passport...` });
+              await interaction.editReply({ content: `Submitting your Gitcoin Passport for scoring...` });
 
-              let passport: Passport | boolean = false;
+              // Submitting the address for verification
+              const submitResponse = await axios.post(SUBMIT_PASSPORT_URI,
+                {
+                  'address': uniformedAddress,
+                  'community': process.env.GITCOIN_PASSPORT_SCORER_ID
+                },
+                {
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-API-Key': process.env.GITCOIN_PASSPORT_API_KEY as string
+                }
+              });
 
-              try {
-                const verifier = new PassportVerifier();
-                passport = await verifier.verifyPassport(uniformedAddress);
-              } catch (error) {
+              if (submitResponse.status !== 200) {
                 await interaction.followUp({
-                  content: `We could not verify your Gitcoin Passport (${error}). Please try again later for ${userMen}.`,
+                  content: `Unexpected status code (${submitResponse.status}) from submitting your Gitcoin Passport for scoring for ${userMen}.`,
                   allowedMentions: { parse: ['users'], repliedUser: false }
                 });
-                reject(`We could not verify your Gitcoin Passport (${error}). Please try again later for @${userTag} (${userId}).`);
+                reject(`Unexpected status code (${submitResponse.status}) from submitting your Gitcoin Passport for scoring for @${userTag} (${userId}).`);
                 return;
               }
 
-              if (passport === false) {
-                await interaction.followUp({
-                  content: `There is no Gitcoin Passport associated with this wallet address (${uniformedAddress}). Create your Gitcoin Passport first for ${userMen}.`,
-                  allowedMentions: { parse: ['users'], repliedUser: false }
-                });
-                reject(`There is no Gitcoin Passport associated with this wallet address (${uniformedAddress}). Create your Gitcoin Passport first for @${userTag} (${userId}).`);
-                return;
-              }
+              // Obtaining the score for that address
+              await interaction.editReply({ content: `Obtaining your Gitcoin Passport score...` });
 
-              // Verify the associated Gitcoin Passport
-              await interaction.editReply({ content: `Computing your Gitcoin Passport score...` });
+              let passportScore = 0.0;
 
-              let passportScore = 0;
-              let dupStamps = 0;
-              const stampHashes = new Array<stampHash>();
+              const scorerUrl = PASSPORT_SCORE_URI.concat(uniformedAddress);
 
-              for (const stamp of passport.stamps) {
-                if (stamp.verified !== true) {
-                  return;
-                }
-                if (stamp.credential.credentialSubject.hash === undefined) {
-                  return;
-                }
-
-                const stampId = `${stamp.credential.issuer}:${stamp.provider}`;
-
-                const stampScore = scoringIds.get(stampId)?.score;
-                if (stampScore !== undefined) {
-                  const sHash: stampHash = {
-                    provider: stamp.provider,
-                    hash: stamp.credential.credentialSubject.hash
-                  };
-
-                  // Dedupe stamp across passports
-                  const isDupStamp = await isStampAlreadyUsed(sHash);
-                  if (isDupStamp) {
-                    dupStamps = dupStamps + 1;
-                  } else {
-                    passportScore = passportScore + stampScore;
-                    stampHashes.push(sHash);
+              let scoringResponse = await axios.get(scorerUrl,
+                {
+                  headers: {
+                    'accept': 'application/json',
+                    'X-API-Key': process.env.GITCOIN_PASSPORT_API_KEY as string
                   }
-                }
+              });
+
+              if (scoringResponse.status !== 200) {
+                await interaction.followUp({
+                  content: `Unexpected status code (${scoringResponse.status}) from obtaining your Gitcoin Passport score for ${userMen}.`,
+                  allowedMentions: { parse: ['users'], repliedUser: false }
+                });
+                reject(`Unexpected status code (${scoringResponse.status}) from obtaining your Gitcoin Passport score for @${userTag} (${userId}).`);
+                return;
               }
 
-              let dupStampMessage = '';
-              if (dupStamps > 0) {
-                dupStampMessage = ` We ignored ${dupStamps} duplicate stamps.`;
+              interface scoringResponse {
+                  address: string,
+                  score: number,
+                  status: string,
+              };
+
+              let queryResponse = scoringResponse.data as scoringResponse;
+
+              if (queryResponse.status !== "DONE") {
+                await interaction.editReply({ content: `Obtaining your Gitcoin Passport score (retrying)...` });
+
+                scoringResponse = await axios.get(scorerUrl,
+                  {
+                    headers: {
+                      'accept': 'application/json',
+                      'X-API-Key': process.env.GITCOIN_PASSPORT_API_KEY as string
+                    }
+                });
+  
+                if (scoringResponse.status !== 200) {
+                  await interaction.followUp({
+                    content: `Unexpected status code (${scoringResponse.status}) from obtaining your Gitcoin Passport score for ${userMen}.`,
+                    allowedMentions: { parse: ['users'], repliedUser: false }
+                  });
+                  reject(`Unexpected status code (${scoringResponse.status}) from obtaining your Gitcoin Passport score for @${userTag} (${userId}).`);
+                  return;
+                }
+
+                queryResponse = scoringResponse.data as scoringResponse;
               }
+
+              if (queryResponse.status !== "DONE") {
+                await interaction.followUp({
+                  content: `Unexpected status (${queryResponse.status}) from obtaining your Gitcoin Passport score for ${userMen}.`,
+                  allowedMentions: { parse: ['users'], repliedUser: false }
+                });
+                reject(`Unexpected status (${queryResponse.status}) from obtaining your Gitcoin Passport score for @${userTag} (${userId}).`);
+                return;
+              }
+
+              passportScore = queryResponse.score;
+
+              console.log(`Passport score ${passportScore} found for wallet address ${queryResponse.address}.`);
 
               if (passportScore < passportScoreThreshold) {
                 await interaction.followUp({
-                  content: `Your Gitcoin Passport score is too low (${passportScore} < ${passportScoreThreshold}).${dupStampMessage} Keep adding stamps and try again. Stamps that give a better proof of your existance usually give a higher score for ${userMen}.`,
+                  content: `Your Gitcoin Passport score is too low (${passportScore} < ${passportScoreThreshold}). Keep adding stamps and try again. Stamps that give a better proof of your existance usually give a higher score for ${userMen}.`,
                   allowedMentions: { parse: ['users'], repliedUser: false }
                 });
-                reject(`Your Gitcoin Passport score is too low (${passportScore} < ${passportScoreThreshold}).${dupStampMessage} Keep adding stamps and try again. Stamps that give a better proof of your existance usually give a higher score for @${userTag} (${userId}).`);
+                reject(`Your Gitcoin Passport score is too low (${passportScore} < ${passportScoreThreshold}). Keep adding stamps and try again. Stamps that give a better proof of your existance usually give a higher score for @${userTag} (${userId}).`);
                 return;
               }
 
@@ -1678,22 +1656,9 @@ const main = function() {
               // Storing the wallet address for associated Gitcoin Passport
               await interaction.editReply({ content: `Storing your Gitcoin Passport...` });
 
-              const passportId = await storePassportWallet(uniformedAddress, userId);
+              await storePassportWallet(uniformedAddress, userId);
 
               await interaction.editReply({ content: `Completed.` });
-
-              // Store stamps for next deduplication
-              storeStamps(passportId, stampHashes).then(async (value) => {
-                if (value) {
-                  await interaction.followUp({
-                    content: `You completed the Gitcoin Passport verification process (${passportScore}).${dupStampMessage} You should now have access to everything that is unlocked with this Passport for ${userMen}.`,
-                    allowedMentions: { parse: ['users'], repliedUser: false }
-                  });
-                  resolve();
-                }
-              }).catch((reason) => {
-                reject(reason);
-              });
 
             } finally {
               existingVerificationWalletRequest.delete(uniformedAddress);
