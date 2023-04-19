@@ -102,7 +102,6 @@ const main = function() {
 
     const goerliProvider = new providers.InfuraProvider(providers.getNetwork('goerli'), process.env.INFURA_API_KEY);
     const sepoliaProvider = new providers.JsonRpcProvider(`https://sepolia.infura.io/v3/${process.env.INFURA_API_KEY}`);
-    const zhejiangProvider = new providers.JsonRpcProvider(`https://rpc.zhejiang.ethpandaops.io/`);
 
     const goerliTransactionMutex = new Mutex();
     const sepoliaTransactionMutex = new Mutex();
@@ -115,10 +114,6 @@ const main = function() {
     sepoliaProvider.getBlockNumber()
     .then((currentBlockNumber) => {
       console.log(`Sepolia RPC provider is at block number ${currentBlockNumber}.`);
-    });
-    zhejiangProvider.getBlockNumber()
-    .then((currentBlockNumber) => {
-      console.log(`Zhejiang RPC provider is at block number ${currentBlockNumber}.`);
     });
 
     // Configuring the faucet commands
@@ -160,24 +155,6 @@ const main = function() {
       provider: sepoliaProvider,
       transactionMutex: sepoliaTransactionMutex,
       needsVerification: true,
-    });
-
-    faucetCommandsConfig.set('request-zhejiang-eth', {
-      network: 'Zhejiang',
-      currency: 'Zhejiang ETH',
-      command: 'request-zhejiang-eth',
-      channel: process.env.ZHEJIANG_CHANNEL_NAME,
-      enoughReason: 'It should be plenty already for testing',
-      requestTable: 'request_zhejiang',
-      rateLimitDuration: Duration.fromObject({ days: 3 }),
-      explorerTxRoot: 'https://zhejiang.beaconcha.in/tx/',
-      existingRequest: new Map<string, boolean>(),
-      minEthers: utils.parseUnits("33", "ether").add(maxTransactionCost.mul(2)),
-      requestAmount: utils.parseUnits("33", "ether"),
-      wallet: new Wallet(process.env.FAUCET_PRIVATE_KEY as string, zhejiangProvider),
-      provider: zhejiangProvider,
-      transactionMutex: zhejiangTransactionMutex,
-      needsVerification: false,
     });
 
     // Logging faucet wallet balance and remaining requests
