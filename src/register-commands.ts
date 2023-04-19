@@ -10,13 +10,6 @@ const guildId = process.env.DISCORD_GUILD_ID as string;
 const token = process.env.DISCORD_TOKEN as string;
 
 const commands = [
-	new SlashCommandBuilder()
-    .setName('request-goeth')
-    .setDescription('Request enough Goerli ETH (GoETH) for a validator deposit to be transfered into your wallet.')
-    .addStringOption(option => option
-      .setName('address')
-      .setDescription('A valid Ethereum address. It can be a full address or an ENS.')
-      .setRequired(true)),
   new SlashCommandBuilder()
     .setName('request-sepolia-eth')
     .setDescription('Request some funds for transactions on the Sepolia testnet to be transfered into your wallet.')

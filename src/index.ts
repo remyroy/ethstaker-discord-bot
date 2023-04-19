@@ -105,7 +105,6 @@ const main = function() {
 
     const goerliTransactionMutex = new Mutex();
     const sepoliaTransactionMutex = new Mutex();
-    const zhejiangTransactionMutex = new Mutex();
 
     goerliProvider.getBlockNumber()
     .then((currentBlockNumber) => {
@@ -120,24 +119,6 @@ const main = function() {
     const faucetCommandsConfig = new Map<string, networkConfig>();
 
     const goerliWallet = new Wallet(process.env.FAUCET_PRIVATE_KEY as string, goerliProvider);
-
-    faucetCommandsConfig.set('request-goeth', {
-      network: 'Goerli',
-      currency: 'GoETH',
-      command: 'request-goeth',
-      channel: process.env.GOERLI_CHANNEL_NAME,
-      enoughReason: 'It should be plenty already for a validator deposit',
-      requestTable: 'request',
-      rateLimitDuration: Duration.fromObject({ days: 4 * 7 }),
-      explorerTxRoot: 'https://goerli.etherscan.io/tx/',
-      existingRequest: new Map<string, boolean>(),
-      minEthers: validatorDepositCost.add(maxTransactionCost.mul(2)),
-      requestAmount: validatorDepositCost.add(maxTransactionCost),
-      wallet: goerliWallet,
-      provider: goerliProvider,
-      transactionMutex: goerliTransactionMutex,
-      needsVerification: true,
-    });
 
     faucetCommandsConfig.set('request-sepolia-eth', {
       network: 'Sepolia',
@@ -191,11 +172,6 @@ const main = function() {
     queueCommandsConfig.set('queue-goerli', {
       network: 'Goerli',
       apiQueueUrl: 'https://goerli.beaconcha.in/api/v1/validators/queue'
-    });
-
-    queueCommandsConfig.set('queue-zhejiang', {
-      network: 'Zhejiang',
-      apiQueueUrl: 'https://zhejiang.beaconcha.in//api/v1/validators/queue'
     });
 
     const initDb = function(db: Database, faucetCommandsConfig: Map<string, networkConfig>) {
