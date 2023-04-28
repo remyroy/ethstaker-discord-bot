@@ -1889,7 +1889,7 @@ const main = function() {
               }
 
               // Storing the wallet address for the cheap deposits
-              await interaction.editReply({ content: `Storing your wallet address...` });
+              await interaction.editReply({ content: `Storing your information...` });
 
               await storeCheapDeposits(uniformedAddress, userId);
 
@@ -1903,7 +1903,12 @@ const main = function() {
                 `machine to run a validator on Goerli in ${officialLinksMen}.\n\nYou **must** set your withdrawal address to ` +
                 `\`0x4D496CcC28058B1D74B7a19541663E21154f9c84\` when creating your validator keys and your deposit file in order ` +
                 `to use this process and to complete your deposit. This is only required for this launchpad. When on Mainnet, you ` +
-                `should use a withdrawal address you control if you want to use one for ${userMen}.`,
+                `should use a withdrawal address you control if you want to use one.\n\nPerforming this deposit transaction ` +
+                `can cost more in gas than the actual cheap deposit cost of 0.0001 Goerli ETH during time of high gas ` +
+                `price. If you end up in this situation, you can either try to obtain more Goerli ETH from ` +
+                `<https://faucetlink.to/goerli>, you can wait until gas price come down (see <https://goerli.beaconcha.in/gasnow> ` +
+                `to monitor gas price on Goerli) or you can broadcast your transaction with a custom low gas price and wait until ` +
+                `it is picked up by the network for ${userMen}.`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
               });
               resolve();
