@@ -1083,7 +1083,7 @@ const main = function() {
                         `Goerli ETH, you should be using online faucets like ` +
                         `those you can find on <https://faucetlink.to/goerli> but ` +
                         `know that Goerli is in a rough state right now and it's ` +
-                        `only going downhill from here for users. If you already have` +
+                        `only going downhill from here for users. If you already have ` +
                         `32 Goerli ETH, you can use the official launchpad on ` +
                         `<https://goerli.launchpad.ethereum.org/>.\n` +
                         `New accounts generally do not come directly asking for cheap deposits. ` +
@@ -1109,7 +1109,7 @@ const main = function() {
                         `Goerli ETH, you should be using online faucets like ` +
                         `those you can find on <https://faucetlink.to/goerli> but ` +
                         `know that Goerli is in a rough state right now and it's ` +
-                        `only going downhill from here for users. If you already have` +
+                        `only going downhill from here for users. If you already have ` +
                         `32 Goerli ETH, you can use the official launchpad on ` +
                         `<https://goerli.launchpad.ethereum.org/>.\n` +
                         `New members generally do not come directly asking for cheap deposits. ` +
@@ -1133,7 +1133,7 @@ const main = function() {
                         `Goerli ETH, you should be using online faucets like ` +
                         `those you can find on <https://faucetlink.to/goerli> but ` +
                         `know that Goerli is in a rough state right now and it's ` +
-                        `only going downhill from here for users. If you already have` +
+                        `only going downhill from here for users. If you already have ` +
                         `32 Goerli ETH, you can use the official launchpad on ` +
                         `<https://goerli.launchpad.ethereum.org/>.\n` +
                         `New accounts generally do not come directly asking for cheap deposits. ` +
@@ -1156,7 +1156,7 @@ const main = function() {
                         `Goerli ETH, you should be using online faucets like ` +
                         `those you can find on <https://faucetlink.to/goerli> but ` +
                         `know that Goerli is in a rough state right now and it's ` +
-                        `only going downhill from here for users. If you already have` +
+                        `only going downhill from here for users. If you already have ` +
                         `32 Goerli ETH, you can use the official launchpad on ` +
                         `<https://goerli.launchpad.ethereum.org/>.\n` +
                         `New members generally do not come directly asking for cheap deposits. ` +
