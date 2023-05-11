@@ -2136,7 +2136,7 @@ const main = function() {
           const participationRate = prevParticipationRate;
           const fixedParticipationRate = fixedPrevParticipationRate;
 
-          console.log(`Participation rate for epoch ${epoch -1} is ${fixedPrevParticipationRate}. Temporary participation rate for ${epoch} is ${fixedCurrParticipationRate}.`);
+          console.log(`Participation rate for epoch ${epoch - 1} is ${fixedPrevParticipationRate}. Temporary participation rate for ${epoch} is ${fixedCurrParticipationRate}.`);
 
           if (participationRate < twoThird) {
             participationRateAlertTriggering.below90 = true;
@@ -2145,7 +2145,7 @@ const main = function() {
             if (!participationRateAlertTriggering.belowTwoThird) {
               participationRateAlertTriggering.belowTwoThird = true;
 
-              const message = `🚨 Participation rate on Mainnet is below 2 / 3 (current: ${fixedParticipationRate} for epoch ${epoch}). Finality is compromised. 🚨`;
+              const message = `🚨 Participation rate on Mainnet is below 2 / 3 (current: ${fixedParticipationRate} for epoch ${epoch - 1}). Finality is compromised. 🚨`;
               console.log(message);
               alertOnDiscord(message).catch((error) => {
                 console.log(`Unable to send alert on discord. ${error}`);
@@ -2158,7 +2158,7 @@ const main = function() {
             if (!participationRateAlertTriggering.below70) {
               participationRateAlertTriggering.below70 = true;
 
-              const message = `⚠️ Participation rate on Mainnet is below 70% (current: ${fixedParticipationRate} for epoch ${epoch}). ⚠️`;
+              const message = `⚠️ Participation rate on Mainnet is below 70% (current: ${fixedParticipationRate} for epoch ${epoch - 1}). ⚠️`;
               console.log(message);
               alertOnDiscord(message).catch((error) => {
                 console.log(`Unable to send alert on discord. ${error}`);
@@ -2167,7 +2167,7 @@ const main = function() {
             } else if (participationRateAlertTriggering.belowTwoThird) {
               participationRateAlertTriggering.belowTwoThird = false;
 
-              const message = `⚠️ Participation rate on Mainnet is back above 2 / 3 (current: ${fixedParticipationRate} for epoch ${epoch}). Finality should resume. ⚠️`;
+              const message = `⚠️ Participation rate on Mainnet is back above 2 / 3 (current: ${fixedParticipationRate} for epoch ${epoch - 1}). Finality should resume. ⚠️`;
               console.log(message);
               alertOnDiscord(message).catch((error) => {
                 console.log(`Unable to send alert on discord. ${error}`);
@@ -2179,7 +2179,7 @@ const main = function() {
             if (!participationRateAlertTriggering.below80) {
               participationRateAlertTriggering.below80 = true;
 
-              const message = `⚠️ Participation rate on Mainnet is below 80% (current: ${fixedParticipationRate} for epoch ${epoch}). ⚠️`;
+              const message = `⚠️ Participation rate on Mainnet is below 80% (current: ${fixedParticipationRate} for epoch ${epoch - 1}). ⚠️`;
               console.log(message);
               alertOnDiscord(message).catch((error) => {
                 console.log(`Unable to send alert on discord. ${error}`);
@@ -2188,7 +2188,7 @@ const main = function() {
             } else if (participationRateAlertTriggering.below70) {
               participationRateAlertTriggering.below70 = false;
 
-              const message = `⚠️ Participation rate on Mainnet is back above 70% (current: ${fixedParticipationRate} for epoch ${epoch}). ⚠️`;
+              const message = `⚠️ Participation rate on Mainnet is back above 70% (current: ${fixedParticipationRate} for epoch ${epoch - 1}). ⚠️`;
               console.log(message);
               alertOnDiscord(message).catch((error) => {
                 console.log(`Unable to send alert on discord. ${error}`);
@@ -2202,7 +2202,7 @@ const main = function() {
             if (!participationRateAlertTriggering.below90) {
               participationRateAlertTriggering.below90 = true;
 
-              const message = `⚠️ Participation rate on Mainnet is below 90% (current: ${fixedParticipationRate} for epoch ${epoch}). ⚠️`;
+              const message = `⚠️ Participation rate on Mainnet is below 90% (current: ${fixedParticipationRate} for epoch ${epoch - 1}). ⚠️`;
               console.log(message);
               alertOnDiscord(message).catch((error) => {
                 console.log(`Unable to send alert on discord. ${error}`);
@@ -2211,7 +2211,7 @@ const main = function() {
             } else if (participationRateAlertTriggering.below80) {
               participationRateAlertTriggering.below80 = false;
 
-              const message = `⚠️ Participation rate on Mainnet is back above 80% (current: ${fixedParticipationRate} for epoch ${epoch}). ⚠️`;
+              const message = `⚠️ Participation rate on Mainnet is back above 80% (current: ${fixedParticipationRate} for epoch ${epoch - 1}). ⚠️`;
               console.log(message);
               alertOnDiscord(message).catch((error) => {
                 console.log(`Unable to send alert on discord. ${error}`);
@@ -2224,7 +2224,7 @@ const main = function() {
 
           } else {
             if (participationRateAlertTriggering.below90) {
-              const message = `ℹ️ Participation rate on Mainnet is back above 90% (current: ${fixedParticipationRate} for epoch ${epoch}). ℹ️`;
+              const message = `ℹ️ Participation rate on Mainnet is back above 90% (current: ${fixedParticipationRate} for epoch ${epoch - 1}). ℹ️`;
               console.log(message);
               alertOnDiscord(message).catch((error) => {
                 console.log(`Unable to send alert on discord. ${error}`);
