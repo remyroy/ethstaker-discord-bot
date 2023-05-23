@@ -1187,7 +1187,7 @@ const main = function() {
 
             if (DateTime.utc() < dtRequestAvailable) {
               await interaction.followUp({
-                content: `You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for ${userMen}.`,
+                content: `You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again. If you already have 32 Goerli ETH, you can use the official launchpad on <https://goerli.launchpad.ethereum.org/> for ${userMen}.`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
               });
               reject(`You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for @${userTag} (${userId}).`);
