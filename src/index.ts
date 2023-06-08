@@ -14,7 +14,7 @@ import { DateTime, Duration } from 'luxon';
 import { Mutex } from 'async-mutex';
 
 import EventSource from 'eventsource';
-import axios from 'axios';
+import axios, { AxiosResponse } from 'axios';
 import seedrandom from 'seedrandom';
 
 const db = new Database('db.sqlite');
@@ -1510,95 +1510,166 @@ const main = function() {
               // Verify the associated Gitcoin Passport
               await interaction.editReply({ content: `Submitting your Gitcoin Passport for scoring...` });
 
-              // Submitting the address for verification
-              const submitResponse = await axios.post(SUBMIT_PASSPORT_URI,
-                {
-                  'address': uniformedAddress,
-                  'community': process.env.GITCOIN_PASSPORT_SCORER_ID
-                },
-                {
-                headers: {
-                  'Content-Type': 'application/json',
-                  'X-API-Key': process.env.GITCOIN_PASSPORT_API_KEY as string
-                }
-              });
+              let keep_retrying = true;
+              let retry_index = 0;
+              const retry_count = 5;
+              let retry_delay = 30;
+              const retry_delay_increase = 15;
+              let errorMsg = '';
 
-              if (submitResponse.status !== 200) {
+              while (keep_retrying && retry_index < retry_count) {
+
+                try {
+
+                  // Submitting the address for verification
+                  const submitResponse = await axios.post(SUBMIT_PASSPORT_URI,
+                    {
+                      'address': uniformedAddress,
+                      'community': process.env.GITCOIN_PASSPORT_SCORER_ID
+                    },
+                    {
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'X-API-Key': process.env.GITCOIN_PASSPORT_API_KEY as string
+                    }
+                  });
+
+                  if (submitResponse.status !== 200) {
+                    retry_index = retry_index + 1
+                    if (retry_index >= retry_count) {
+                      break;
+                    }
+                    const retryMsg = `We will retry in ${retry_delay} seconds (retry index = ${retry_index}).`;
+                    errorMsg = `Unexpected status code (${submitResponse.status}) from submitting your Gitcoin Passport for scoring.`;
+
+                    await interaction.editReply({ content: `${errorMsg} ${retryMsg}` });
+
+                    await new Promise(r => setTimeout(r, retry_delay * 1000));
+                    retry_delay = retry_delay + retry_delay_increase;
+                  } else {
+                    keep_retrying = false
+                  }
+                }
+                catch (e) {
+                  retry_index = retry_index + 1
+                  if (retry_index >= retry_count) {
+                    break;
+                  }
+                  const retryMsg = `We will retry in ${retry_delay} seconds (retry index = ${retry_index}).`;
+                  errorMsg = `Unexpected exception (${e}) from submitting your Gitcoin Passport for scoring.`;
+
+                  await interaction.editReply({ content: `${errorMsg} ${retryMsg}` });
+
+                  await new Promise(r => setTimeout(r, retry_delay * 1000));
+                  retry_delay = retry_delay + retry_delay_increase;
+                }
+
+              }
+
+              if (keep_retrying) {
                 await interaction.followUp({
-                  content: `Unexpected status code (${submitResponse.status}) from submitting your Gitcoin Passport for scoring for ${userMen}.`,
+                  content: `We failed to submit your Gitcoin Passport for scoring (${errorMsg}) for ${userMen}.`,
                   allowedMentions: { parse: ['users'], repliedUser: false }
                 });
-                reject(`Unexpected status code (${submitResponse.status}) from submitting your Gitcoin Passport for scoring for @${userTag} (${userId}).`);
+                reject(`We failed to submit your Gitcoin Passport for scoring (${errorMsg}) for @${userTag} (${userId}).`);
                 return;
               }
 
               // Obtaining the score for that address
               await interaction.editReply({ content: `Obtaining your Gitcoin Passport score...` });
 
-              let passportScore = 0.0;
+              keep_retrying = true;
+              retry_index = 0;
+              retry_delay = 30;
+              errorMsg = '';
 
               const scorerUrl = PASSPORT_SCORE_URI.concat(uniformedAddress);
+              
+              let passportScore: number = 0.0;
+              let passportAddress: string = '';
 
-              let scoringResponse = await axios.get(scorerUrl,
-                {
-                  headers: {
-                    'accept': 'application/json',
-                    'X-API-Key': process.env.GITCOIN_PASSPORT_API_KEY as string
-                  }
-              });
+              while (keep_retrying && retry_index < retry_count) {
 
-              if (scoringResponse.status !== 200) {
-                await interaction.followUp({
-                  content: `Unexpected status code (${scoringResponse.status}) from obtaining your Gitcoin Passport score for ${userMen}.`,
-                  allowedMentions: { parse: ['users'], repliedUser: false }
-                });
-                reject(`Unexpected status code (${scoringResponse.status}) from obtaining your Gitcoin Passport score for @${userTag} (${userId}).`);
-                return;
-              }
+                try {
 
-              interface scoringResponse {
-                  address: string,
-                  score: number,
-                  status: string,
-              };
-
-              let queryResponse = scoringResponse.data as scoringResponse;
-
-              if (queryResponse.status !== "DONE") {
-                await interaction.editReply({ content: `Obtaining your Gitcoin Passport score (retrying)...` });
-
-                scoringResponse = await axios.get(scorerUrl,
-                  {
-                    headers: {
-                      'accept': 'application/json',
-                      'X-API-Key': process.env.GITCOIN_PASSPORT_API_KEY as string
-                    }
-                });
-  
-                if (scoringResponse.status !== 200) {
-                  await interaction.followUp({
-                    content: `Unexpected status code (${scoringResponse.status}) from obtaining your Gitcoin Passport score for ${userMen}.`,
-                    allowedMentions: { parse: ['users'], repliedUser: false }
+                  const scoringResponse = await axios.get(scorerUrl,
+                    {
+                      headers: {
+                        'accept': 'application/json',
+                        'X-API-Key': process.env.GITCOIN_PASSPORT_API_KEY as string
+                      }
                   });
-                  reject(`Unexpected status code (${scoringResponse.status}) from obtaining your Gitcoin Passport score for @${userTag} (${userId}).`);
-                  return;
+
+                  if (scoringResponse?.status !== 200) {
+                    retry_index = retry_index + 1
+                    if (retry_index >= retry_count) {
+                      break;
+                    }
+                    const retryMsg = `We will retry in ${retry_delay} seconds (retry index = ${retry_index}).`;
+                    errorMsg = `Unexpected status code (${scoringResponse?.status}) from obtaining your Gitcoin Passport score.`;
+
+                    await interaction.editReply({ content: `${errorMsg} ${retryMsg}` });
+
+                    await new Promise(r => setTimeout(r, retry_delay * 1000));
+                    retry_delay = retry_delay + retry_delay_increase;
+                    continue;
+                  }
+
+                  interface scoringResponse {
+                      address: string,
+                      score: number,
+                      status: string,
+                  };
+    
+                  let queryResponse = scoringResponse?.data as scoringResponse;
+  
+                  if (queryResponse.status !== "DONE") {
+                    retry_index = retry_index + 1
+                    if (retry_index >= retry_count) {
+                      break;
+                    }
+                    const retryMsg = `We will retry in ${retry_delay} seconds (retry index = ${retry_index}).`;
+                    errorMsg = `Unexpected status (${queryResponse.status}) from obtaining your Gitcoin Passport score.`;
+
+                    await interaction.editReply({ content: `${errorMsg} ${retryMsg}` });
+
+                    await new Promise(r => setTimeout(r, retry_delay * 1000));
+                    retry_delay = retry_delay + retry_delay_increase;
+                    continue;
+                  } else {
+                    passportScore = queryResponse.score;
+                    passportAddress = queryResponse.address;
+
+                    keep_retrying = false;
+                  }
+
+                }
+                catch (e) {
+                  retry_index = retry_index + 1
+                  if (retry_index >= retry_count) {
+                    break;
+                  }
+                  const retryMsg = `We will retry in ${retry_delay} seconds (retry index = ${retry_index}).`;
+                  errorMsg = `Unexpected exception (${e}) from obtaining your Gitcoin Passport score.`;
+
+                  await interaction.editReply({ content: `${errorMsg} ${retryMsg}` });
+
+                  await new Promise(r => setTimeout(r, retry_delay * 1000));
+                  retry_delay = retry_delay + retry_delay_increase;
                 }
 
-                queryResponse = scoringResponse.data as scoringResponse;
               }
 
-              if (queryResponse.status !== "DONE") {
+              if (keep_retrying) {
                 await interaction.followUp({
-                  content: `Unexpected status (${queryResponse.status}) from obtaining your Gitcoin Passport score for ${userMen}.`,
+                  content: `We failed to obtain your Gitcoin Passport score (${errorMsg}) for ${userMen}.`,
                   allowedMentions: { parse: ['users'], repliedUser: false }
                 });
-                reject(`Unexpected status (${queryResponse.status}) from obtaining your Gitcoin Passport score for @${userTag} (${userId}).`);
+                reject(`We failed to obtain your Gitcoin Passport score (${errorMsg}) for @${userTag} (${userId}).`);
                 return;
               }
 
-              passportScore = queryResponse.score;
-
-              console.log(`Passport score ${passportScore} found for wallet address ${queryResponse.address}.`);
+              console.log(`Passport score ${passportScore} found for wallet address ${passportAddress}.`);
 
               if (passportScore < passportScoreThreshold) {
                 await interaction.followUp({
