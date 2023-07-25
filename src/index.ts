@@ -928,7 +928,9 @@ const main = function() {
           const msg = (
             `If you want to perform your Goerli validator deposit, use ` +
             `${cheapGoerliValidatorMention} and the \`/cheap-goerli-deposit\` slash command ` +
-            `(start typing the command and it will show up above your input box). If you need ` +
+            `(start typing the command and it will show up above your input box). This process ` +
+            `will not directly give you any meaningful amount of Goerli ETH, but it will ` +
+            `enable you to become a validator on Goerli for free. If you need ` +
             `Goerli ETH for any purpose, check out the great online faucets on ` +
             `<https://faucetlink.to/goerli>. We don't give out Goerli ETH and we frown upon ` +
             `anyone buying, selling or trading Goerli ETH so please don't ask for it. Goerli is ` +
