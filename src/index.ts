@@ -14,7 +14,7 @@ import { DateTime, Duration } from 'luxon';
 import { Mutex } from 'async-mutex';
 
 import EventSource from 'eventsource';
-import axios, { AxiosResponse } from 'axios';
+import axios from 'axios';
 import seedrandom from 'seedrandom';
 
 const db = new Database('db.sqlite');
