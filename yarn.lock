@@ -1559,10 +1559,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"discord-api-types@npm:^0.37.43":
-  version: 0.37.43
-  resolution: "discord-api-types@npm:0.37.43"
-  checksum: 716bafb6b2881fd0bb36edae67ec04d08e393ff80b762c74376a40d99cf6dace71d9b13242cea95df1fb9db3aa64fd3e94719dc983420e3b3e139f0e77258489
+"discord-api-types@npm:^0.37.50":
+  version: 0.37.50
+  resolution: "discord-api-types@npm:0.37.50"
+  checksum: 08dc5145dbefda5f52b479cd42d96ac2b8110300861855e1f92cc8a0a6525a4059e32724cd5237490c286f5afd86797a86823238cd5eee016198560bb36f6d43
   languageName: node
   linkType: hard
 
@@ -1787,7 +1787,7 @@ __metadata:
     async-mutex: ^0.4.0
     axios: ^1.4.0
     bufferutil: ^4.0.7
-    discord-api-types: ^0.37.43
+    discord-api-types: ^0.37.50
     discord.js: ^14.11.0
     dotenv: ^16.0.1
     erlpack: ^0.1.4
