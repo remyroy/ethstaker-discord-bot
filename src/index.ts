@@ -868,7 +868,7 @@ const main = function() {
             const activationNormalProcessingMaxDuration = Duration.fromObject({ hours: 24 });
 
             let activationQueueMessage = `The **activation queue** is empty. ${activationNormalProcessingMsg}`;
-            let exitQueueMessage = 'The **exit queue** is empty. It should only take a few minutes for a validator to complete a voluntary exit.';
+            let exitQueueMessage = 'The **exit queue** is empty. It should only take a few minutes for a validator to leave the exit queue. The exit queue is only a small part of the full exit / withdrawal process. See <https://media.discordapp.net/attachments/939440360789266462/1105846872700108850/exit1.png> for more details.';
 
             const churnLimit = churn_limit(queryResponse.data.validatorscount);
             const churnPerDay = churn_limit_per_day(queryResponse.data.validatorscount);
@@ -897,7 +897,7 @@ const main = function() {
               }
               const formattedExitDuration = exitDuration.toHuman();
 
-              exitQueueMessage = `There are **${queryResponse.data.beaconchain_exiting} validators awaiting to exit** the network. It should take at least ${formattedExitDuration} for a voluntary exit to be processed and an associated validator to leave the network ${churnText}.`;
+              exitQueueMessage = `There are **${queryResponse.data.beaconchain_exiting} validators awaiting to exit** the network. It should take at least ${formattedExitDuration} for a voluntary exit to be processed and an associated validator to leave the exit queue ${churnText}. The exit queue is only a small part of the full exit / withdrawal process. See <https://media.discordapp.net/attachments/939440360789266462/1105846872700108850/exit1.png> for more details.`;
             }
 
             console.log(`Current queue details for ${network} for @${userTag} (${userId})\n\n- ${activationQueueMessage}\n- ${exitQueueMessage}`);
