@@ -174,6 +174,11 @@ const main = function() {
       apiQueueUrl: 'https://goerli.beaconcha.in/api/v1/validators/queue'
     });
 
+    queueCommandsConfig.set('queue-holesky', {
+      network: 'Holesky',
+      apiQueueUrl: 'https://holesky.beaconcha.in/api/v1/validators/queue'
+    });
+
     const initDb = function(db: Database, faucetCommandsConfig: Map<string, networkConfig>) {
       return new Promise<void>(async (resolve, reject) => {
         db.serialize(() => {
