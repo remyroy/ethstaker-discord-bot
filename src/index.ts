@@ -1676,14 +1676,17 @@ const main = function() {
                 return;
               }
 
-              console.log(`Passport score ${passportScore} found for wallet address ${passportAddress}.`);
+              const formattedPassportScore = passportScore.toFixed(1);
+
+              console.log(`Passport score ${formattedPassportScore} found for wallet address ${passportAddress}.`);
+              
 
               if (passportScore < passportScoreThreshold) {
                 await interaction.followUp({
-                  content: `Your Gitcoin Passport score is too low (${passportScore} < ${passportScoreThreshold}). Keep adding stamps and try again. Stamps that give a better proof of your existance usually give a higher score for ${userMen}.`,
+                  content: `Your Gitcoin Passport score is too low (${formattedPassportScore} < ${passportScoreThreshold}). Keep adding stamps and try again. Stamps that give a better proof of your existance usually give a higher score for ${userMen}.`,
                   allowedMentions: { parse: ['users'], repliedUser: false }
                 });
-                reject(`Your Gitcoin Passport score is too low (${passportScore} < ${passportScoreThreshold}). Keep adding stamps and try again. Stamps that give a better proof of your existance usually give a higher score for @${userTag} (${userId}).`);
+                reject(`Your Gitcoin Passport score is too low (${formattedPassportScore} < ${passportScoreThreshold}). Keep adding stamps and try again. Stamps that give a better proof of your existance usually give a higher score for @${userTag} (${userId}).`);
                 return;
               }
 
@@ -1700,7 +1703,7 @@ const main = function() {
               await interaction.editReply({ content: `Completed.` });
 
               await interaction.followUp({
-                content: `You are now verified with Gitcoin Passport (score: ${passportScore}) with wallet address ${uniformedAddress} for ${userMen}.`,
+                content: `You are now verified with Gitcoin Passport (score: ${formattedPassportScore}) with wallet address ${uniformedAddress} for ${userMen}.`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
               });
 
