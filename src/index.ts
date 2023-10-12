@@ -1644,11 +1644,8 @@ const main = function() {
                     retry_delay = retry_delay + retry_delay_increase;
                     continue;
                   } else {
-                    console.log(`scoringResponse.data: ${scoringResponse?.data}`);
                     passportScore = parseFloat(queryResponse.score);
                     passportAddress = queryResponse.address;
-
-                    console.log(`passportScore: ${passportScore}`);
 
                     keep_retrying = false;
                   }
