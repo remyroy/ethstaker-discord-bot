@@ -48,11 +48,21 @@ const commands = [
       .setDescription('An optional user to ping with the message.')
       .setRequired(false)),
   new SlashCommandBuilder()
+    .setName('holesky-msg')
+    .setDescription('Explain how to do a validator deposit or get ETH on Holesky.')
+    .addUserOption(option => option
+      .setName('user')
+      .setDescription('An optional user to ping with the message.')
+      .setRequired(false)),
+  new SlashCommandBuilder()
     .setName('verify-passport')
     .setDescription('Verify your Gitcoin Passport created on https://passport.gitcoin.co/.'),
   new SlashCommandBuilder()
     .setName('cheap-goerli-deposit')
     .setDescription('Obtain some cheap and easy Goerli validator deposits.'),
+  new SlashCommandBuilder()
+    .setName('cheap-holesky-deposit')
+    .setDescription('Obtain some cheap and easy Holesky validator deposits.'),
 ]
 	.map(command => command.toJSON());
 
