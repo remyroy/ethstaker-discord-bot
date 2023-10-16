@@ -392,10 +392,6 @@ const main = function() {
 
             const lastRequested = Math.floor(DateTime.utc().toMillis() / 1000);
             if (doInsert) {
-              console.log('INSERT INTO cheap_deposit(walletAddress, userId, lastRequested) VALUES(?, ?, ?);');
-              console.log(walletAddress);
-              console.log(userId);
-              console.log(lastRequested);
               db.run(`INSERT INTO cheap_deposit(walletAddress, userId, lastRequested) VALUES(?, ?, ?);`, walletAddress, userId, lastRequested, (error: Error | null) => {
                 if (error !== null) {
                   reject(error);
@@ -404,10 +400,6 @@ const main = function() {
                 resolve();
               });
             } else {
-              console.log('UPDATE cheap_deposit SET walletAddress = ?, lastRequested = ? WHERE userId = ?;');
-              console.log(walletAddress);
-              console.log(lastRequested);
-              console.log(userId);
               db.run(`UPDATE cheap_deposit SET walletAddress = ?, lastRequested = ? WHERE userId = ?;`, walletAddress, lastRequested, userId, (error: Error | null) => {
                 if (error !== null) {
                   reject(error);
