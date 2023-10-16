@@ -2602,7 +2602,7 @@ const main = function() {
             const formattedDuration = durRequestAvailable.toHuman();
 
             if (DateTime.utc() < dtRequestAvailable) {
-              await interaction.followUp({
+              await interaction.reply({
                 content: `You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for ${userMen}.`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
               });
@@ -2652,7 +2652,7 @@ const main = function() {
             const formattedDuration = durRequestAvailable.toHuman();
 
             if (DateTime.utc() < dtRequestAvailable) {
-              await interaction.followUp({
+              await interaction.reply({
                 content: `You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for ${userMen}.`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
               });
