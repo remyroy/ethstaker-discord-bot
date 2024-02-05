@@ -20,8 +20,6 @@ const commands = [
 	new SlashCommandBuilder().setName('ping').setDescription('Replies with pong!'),
   new SlashCommandBuilder().setName('queue-mainnet')
     .setDescription('Get validators activation and exit queue details from Mainnet.'),
-  new SlashCommandBuilder().setName('queue-goerli')
-    .setDescription('Get validators activation and exit queue details from Goerli testnet.'),
   new SlashCommandBuilder().setName('queue-holesky')
     .setDescription('Get validators activation and exit queue details from Holesky testnet.'),
   new SlashCommandBuilder().setName('participation-mainnet')
@@ -33,13 +31,6 @@ const commands = [
       .setName('enabled')
       .setDescription('Enable or disable auto posting the participation rate.')
       .setRequired(true)),
-  new SlashCommandBuilder()
-    .setName('goerli-msg')
-    .setDescription('Explain how to do a validator deposit or get ETH on Goerli.')
-    .addUserOption(option => option
-      .setName('user')
-      .setDescription('An optional user to ping with the message.')
-      .setRequired(false)),
   new SlashCommandBuilder()
     .setName('sepolia-eth-msg')
     .setDescription('Explain how to get Sepolia ETH to someone else.')
@@ -57,9 +48,6 @@ const commands = [
   new SlashCommandBuilder()
     .setName('verify-passport')
     .setDescription('Verify your Gitcoin Passport created on https://passport.gitcoin.co/.'),
-  new SlashCommandBuilder()
-    .setName('cheap-goerli-deposit')
-    .setDescription('Obtain some cheap and easy Goerli validator deposits.'),
   new SlashCommandBuilder()
     .setName('cheap-holesky-deposit')
     .setDescription('Obtain some cheap and easy Holesky validator deposits.'),

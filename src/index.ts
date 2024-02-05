@@ -31,7 +31,6 @@ const joinedDiscordServerDelay = Duration.fromObject({ hours: 44 });
 const verifiedNewAccountDelay = Duration.fromObject({ days: 7 });
 const verifiedJoinedDiscordServerDelay = Duration.fromObject({ hours: 20 });
 
-const cheapDepositDelay = Duration.fromObject({ days: 60 });
 const cheapDepositHoleskyDelay = Duration.fromObject({ days: 20 });
 
 const restrictedRoles = new Set<string>(process.env.ROLE_IDS?.split(','));
@@ -46,7 +45,6 @@ const CHURN_LIMIT_QUOTIENT = 65536;
 const PASSPORT_SCORE_URI = `https://api.scorer.gitcoin.co/registry/score/${process.env.GITCOIN_PASSPORT_SCORER_ID}/`;
 const SUBMIT_PASSPORT_URI = 'https://api.scorer.gitcoin.co/registry/submit-passport';
 
-const depositProxyContractAddress = process.env.PROXY_GOERLI_DEPOSIT_CONTRACT as string;
 const depositProxyContractHoleskyAddress = process.env.PROXY_HOLESKY_DEPOSIT_CONTRACT as string;
 const depositProxyContractAbi = [
   "function balanceOf(address,uint256) view returns (uint256)",
@@ -102,18 +100,12 @@ const main = function() {
       console.log(`Mainnet RPC provider is at block number ${currentBlockNumber}.`);
     });
 
-    const goerliProvider = new providers.InfuraProvider(providers.getNetwork('goerli'), process.env.INFURA_API_KEY);
     const sepoliaProvider = new providers.JsonRpcProvider(`https://sepolia.infura.io/v3/${process.env.INFURA_API_KEY}`);
     const holeskyProvider = new providers.JsonRpcProvider(`https://rpc.holesky.ethpandaops.io`);
 
-    const goerliTransactionMutex = new Mutex();
     const sepoliaTransactionMutex = new Mutex();
     const holeskyTransactionMutex = new Mutex();
 
-    goerliProvider.getBlockNumber()
-    .then((currentBlockNumber) => {
-      console.log(`Goerli RPC provider is at block number ${currentBlockNumber}.`);
-    });
     sepoliaProvider.getBlockNumber()
     .then((currentBlockNumber) => {
       console.log(`Sepolia RPC provider is at block number ${currentBlockNumber}.`);
@@ -126,7 +118,6 @@ const main = function() {
     // Configuring the faucet commands
     const faucetCommandsConfig = new Map<string, networkConfig>();
 
-    const goerliWallet = new Wallet(process.env.FAUCET_PRIVATE_KEY as string, goerliProvider);
     const holeskyWallet = new Wallet(process.env.FAUCET_PRIVATE_KEY as string, holeskyProvider);
 
     faucetCommandsConfig.set('request-sepolia-eth', {
@@ -176,11 +167,6 @@ const main = function() {
     queueCommandsConfig.set('queue-mainnet', {
       network: 'Mainnet',
       apiQueueUrl: 'https://beaconcha.in/api/v1/validators/queue'
-    });
-
-    queueCommandsConfig.set('queue-goerli', {
-      network: 'Goerli',
-      apiQueueUrl: 'https://goerli.beaconcha.in/api/v1/validators/queue'
     });
 
     queueCommandsConfig.set('queue-holesky', {
@@ -343,75 +329,6 @@ const main = function() {
     let currentParticipationRateEpoch: number | null = null;
     let currentParticipationRateDate: number | null = null;
     const twoThird = 2 / 3;
-
-    const getLastCheapDepositRequest = function(userId: string) {
-      return new Promise<lastCheapDepositRequest | null>(async (resolve, reject) => {
-        db.get(`SELECT walletAddress, lastRequested from cheap_deposit WHERE userId = ?;`, userId, (error: Error | null, row: any ) => {
-          if (error !== null) {
-            reject(error);
-            return;
-          }
-          if (row === undefined) {
-            resolve(null);
-          } else {
-            const value = row as lastCheapDepositRequest;
-            resolve(value);
-          }
-        });
-      });
-    };
-
-    const isCheapDepositsWalletAlreadyUsed = function(walletAddress: string, userId: string) {
-      return new Promise<boolean>(async (resolve, reject) => {
-        db.get(`SELECT walletAddress from cheap_deposit WHERE walletAddress = ? and userId != ?;`, walletAddress, userId, (error: Error | null, row: any ) => {
-          if (error !== null) {
-            reject(error);
-            return;
-          }
-          if (row === undefined) {
-            resolve(false);
-          } else {
-            resolve(true);
-          }
-        });
-      });
-    }
-
-    const storeCheapDeposits = function(walletAddress: string, userId: string) {
-      return new Promise<void>(async (resolve, reject) => {
-        db.serialize(() => {
-          let doInsert = true;
-          db.get(`SELECT walletAddress, lastRequested from cheap_deposit WHERE userId = ?;`, userId, (error: Error | null, row: any ) => {
-            if (error !== null) {
-              reject(error);
-              return;
-            }
-            if (row !== undefined) {
-              doInsert = false;
-            }
-
-            const lastRequested = Math.floor(DateTime.utc().toMillis() / 1000);
-            if (doInsert) {
-              db.run(`INSERT INTO cheap_deposit(walletAddress, userId, lastRequested) VALUES(?, ?, ?);`, walletAddress, userId, lastRequested, (error: Error | null) => {
-                if (error !== null) {
-                  reject(error);
-                  return;
-                }
-                resolve();
-              });
-            } else {
-              db.run(`UPDATE cheap_deposit SET walletAddress = ?, lastRequested = ? WHERE userId = ?;`, walletAddress, lastRequested, userId, (error: Error | null) => {
-                if (error !== null) {
-                  reject(error);
-                  return;
-                }
-                resolve();
-              });
-            }
-          });
-        });
-      });
-    };
 
     const getLastCheapDepositHoleskyRequest = function(userId: string) {
       return new Promise<lastCheapDepositRequest | null>(async (resolve, reject) => {
@@ -1017,38 +934,6 @@ const main = function() {
             await interaction.followUp(`Error while trying to query beaconcha.in API for ${network} queue details for ${userMen}. ${error}`);
           }
 
-        } else if (commandName === 'goerli-msg') {
-          console.log(`${commandName} from ${userTag} (${userId})`);
-
-          const cheapGoerliValidatorMention = channelMention(process.env.CHEAP_GOERLI_VALIDATOR_CHANNEL_ID as string);
-
-          let targetUser = 'You';
-
-          const inputUser = interaction.options.getUser('user', false);
-          if (inputUser !== null) {
-            targetUser = userMention(inputUser.id);
-          }
-
-          const msg = (
-            `If you want to perform your Goerli validator deposit, use ` +
-            `${cheapGoerliValidatorMention} and the \`/cheap-goerli-deposit\` slash command ` +
-            `(start typing the command and it will show up above your input box). This process ` +
-            `will not directly give you any meaningful amount of Goerli ETH, but it will ` +
-            `enable you to become a validator on Goerli for free. If you need ` +
-            `Goerli ETH for any purpose, check out the great online faucets on ` +
-            `<https://faucetlink.to/goerli>. We don't give out Goerli ETH and we frown upon ` +
-            `anyone buying, selling or trading Goerli ETH so please don't ask for it. Goerli is ` +
-            `in a rough state right now and it's only going downhill from here for users.\n\n` +
-            `If you are a developer working on smart contracts, there are plenty of good ` +
-            `alternatives to Goerli to test on. Hardhat, Sepolia and Gnosis are 3 good ` +
-            `networks/tools you can use to test your smart contracts on right now for ${targetUser}.`
-            );
-          
-          interaction.reply({
-            content: msg,
-            flags: MessageFlags.SuppressEmbeds
-          });
-
         } else if (commandName === 'sepolia-eth-msg') {
           console.log(`${commandName} from ${userTag} (${userId})`);
 
@@ -1168,200 +1053,6 @@ const main = function() {
             components: [row],
             embeds: [gitcoinPassportEmbed, signerEmbed],
             ephemeral: true
-          });
-
-        } else if (commandName === 'cheap-goerli-deposit') {
-          console.log(`${commandName} from ${userTag} (${userId})`);
-
-          // Restrict command to channel
-          const restrictChannel = interaction.guild?.channels.cache.find((channel) => channel.id === process.env.CHEAP_GOERLI_VALIDATOR_CHANNEL_ID);
-          if (restrictChannel !== undefined) {
-            if (interaction.channelId !== restrictChannel.id) {
-              const channelMen = channelMention(restrictChannel.id);
-              await interaction.reply({
-                content: `This is the wrong channel for this bot command (${commandName}). You should try in ${channelMen} for ${userMen}.`,
-                allowedMentions: { parse: ['users'], repliedUser: false }
-              });
-              reject(`This is the wrong channel for this bot command (${commandName}). You should try in #${restrictChannel.name} for @${userTag} (${userId}).`);
-              return;
-            }
-          }
-
-          const userCreatedAt = interaction.user.createdTimestamp;
-          const userExistDuration = DateTime.utc().toMillis() - userCreatedAt;
-          const officialLinksMen = channelMention(process.env.OFFICIAL_LINKS_CHANNEL_ID as string);
-
-          const memberJoinedAt = (interaction.member as GuildMember).joinedTimestamp;
-          const memberDuration = DateTime.utc().toMillis() - (memberJoinedAt as number);
-
-          // Check for user role
-          await interaction.reply({ content: 'Checking if you have the proper role to speed up delay period...', ephemeral: true });
-          const hasRole = restrictedRoles.size === 0 || (interaction.member?.roles as GuildMemberRoleManager).cache.find((role) => restrictedRoles.has(role.id)) !== undefined;
-          if (!hasRole) {
-            const brightIdMention = channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
-            const passportVerificationMention = channelMention(process.env.PASSPORT_CHANNEL_ID as string);
-
-            // Check for new accounts
-            await interaction.editReply({
-              content: `Checking if you have a new account...`
-            });
-            if (userExistDuration < newAccountDelay.toMillis()) {
-              await interaction.followUp({
-                content: `Your Discord account was just created. We need to ` +
-                        `restrict access for new accounts because of abuses. ` +
-                        `Please try again in a few days. You can speed this up ` +
-                        `by completing one of the verification processes in ` +
-                        `${brightIdMention} or in ${passportVerificationMention}. ` +
-                        `If you desperately need ` +
-                        `Goerli ETH, you should be using online faucets like ` +
-                        `those you can find on <https://faucetlink.to/goerli> but ` +
-                        `know that Goerli is in a rough state right now and it's ` +
-                        `only going downhill from here for users. If you already have ` +
-                        `32 Goerli ETH, you can use the official launchpad on ` +
-                        `<https://goerli.launchpad.ethereum.org/>.\n` +
-                        `New accounts generally do not come directly asking for cheap deposits. ` +
-                        `You might want to check out the guides and tools that exist for configuring ` +
-                        `your machine to run a validator on Goerli in ${officialLinksMen} first for ${userMen}.`,
-              });
-              reject(`Your Discord account was just created. We need to restrict access for new accounts because of abuses. Please try again in a few days for ${userTag} (${userId})`);
-              return;
-            }
-
-            // Check for new guild member
-            await interaction.editReply({
-              content: `Checking if you recently joined the EthStaker Discord server...`
-            });
-            if (memberDuration < joinedDiscordServerDelay.toMillis()) {
-              await interaction.followUp({
-                content: `You just joined the EthStaker Discord server. We need to ` +
-                        `restrict access for members who just joined because of abuses. ` +
-                        `Please try again in a few days. You can speed this up ` +
-                        `by completing one of the verification processes in ` +
-                        `${brightIdMention} or in ${passportVerificationMention}. ` +
-                        `If you desperately need ` +
-                        `Goerli ETH, you should be using online faucets like ` +
-                        `those you can find on <https://faucetlink.to/goerli> but ` +
-                        `know that Goerli is in a rough state right now and it's ` +
-                        `only going downhill from here for users. If you already have ` +
-                        `32 Goerli ETH, you can use the official launchpad on ` +
-                        `<https://goerli.launchpad.ethereum.org/>.\n` +
-                        `New members generally do not come directly asking for cheap deposits. ` +
-                        `You might want to check out the guides and tools that exist for configuring ` +
-                        `your machine to run a validator on Goerli in ${officialLinksMen} first for ${userMen}.`,
-              });
-              reject(`You just joined the EthStaker Discord server. We need to restrict access for members who just joined because of abuses. Please try again in a few days for ${userTag} (${userId})`);
-              return;
-            }
-          } else {
-
-            // Check for new accounts
-            await interaction.editReply({
-              content: `Checking if you have a new account...`
-            });
-            if (userExistDuration < verifiedNewAccountDelay.toMillis()) {
-              await interaction.followUp({
-                content: `Your Discord account was just created. We need to ` +
-                        `restrict access for new accounts because of abuses. ` +
-                        `Please try again in a few days. If you desperately need ` +
-                        `Goerli ETH, you should be using online faucets like ` +
-                        `those you can find on <https://faucetlink.to/goerli> but ` +
-                        `know that Goerli is in a rough state right now and it's ` +
-                        `only going downhill from here for users. If you already have ` +
-                        `32 Goerli ETH, you can use the official launchpad on ` +
-                        `<https://goerli.launchpad.ethereum.org/>.\n` +
-                        `New accounts generally do not come directly asking for cheap deposits. ` +
-                        `You might want to check out the guides and tools that exist for configuring ` +
-                        `your machine to run a validator on Goerli in ${officialLinksMen} first for ${userMen}.`,
-              });
-              reject(`Your verified Discord account was just created. We need to restrict access for new accounts because of abuses. Please try again in a few days for ${userTag} (${userId})`);
-              return;
-            }
-
-            // Check for new guild member
-            await interaction.editReply({
-              content: `Checking if you recently joined the EthStaker Discord server...`
-            });
-            if (memberDuration < verifiedJoinedDiscordServerDelay.toMillis()) {
-              await interaction.followUp({
-                content: `You just joined the EthStaker Discord server. We need to ` +
-                        `restrict access for members who just joined because of abuses. ` +
-                        `Please try again in a few days. If you desperately need ` +
-                        `Goerli ETH, you should be using online faucets like ` +
-                        `those you can find on <https://faucetlink.to/goerli> but ` +
-                        `know that Goerli is in a rough state right now and it's ` +
-                        `only going downhill from here for users. If you already have ` +
-                        `32 Goerli ETH, you can use the official launchpad on ` +
-                        `<https://goerli.launchpad.ethereum.org/>.\n` +
-                        `New members generally do not come directly asking for cheap deposits. ` +
-                        `You might want to check out the guides and tools that exist for configuring ` +
-                        `your machine to run a validator on Goerli in ${officialLinksMen} first for ${userMen}.`,
-              });
-              reject(`You just joined the EthStaker Discord server with verification. We need to restrict access for members who just joined because of abuses. Please try again in a few days for ${userTag} (${userId})`);
-              return;
-            }
-
-          }
-
-          // Check if the user already has been given cheap deposits recently.
-          await interaction.editReply({
-            content: 'Checking if you are rate-limited...'
-          });
-          const lastRequest = await getLastCheapDepositRequest(userId);
-          let newRequestPart = '';
-          if (lastRequest !== null) {
-            const dtLastRequested = DateTime.fromMillis(lastRequest.lastRequested * 1000);
-            const dtRequestAvailable = dtLastRequested.plus(cheapDepositDelay);
-
-            let durRequestAvailable = dtRequestAvailable.diff(DateTime.utc()).shiftTo('days', 'hours').normalize();
-            if (durRequestAvailable.days === 0) {
-              durRequestAvailable = durRequestAvailable.shiftTo('hours', 'minutes');
-            }
-            const formattedDuration = durRequestAvailable.toHuman();
-
-            if (DateTime.utc() < dtRequestAvailable) {
-              await interaction.followUp({
-                content: `You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again. If you already have 32 Goerli ETH, you can use the official launchpad on <https://goerli.launchpad.ethereum.org/> for ${userMen}.`,
-                allowedMentions: { parse: ['users'], repliedUser: false }
-              });
-              reject(`You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for @${userTag} (${userId}).`);
-              return;
-            } else {
-              let negDurRequestAvailable = durRequestAvailable.negate().shiftTo('days', 'hours').normalize();
-              if (negDurRequestAvailable.days === 0) {
-                negDurRequestAvailable = negDurRequestAvailable.shiftTo('hours', 'minutes');
-              }
-              const newRequestFormattedDuration = negDurRequestAvailable.toHuman();
-
-              newRequestPart = ` Your new request was available ${newRequestFormattedDuration} ago.`;
-              if (negDurRequestAvailable.toMillis() <= quickNewRequest.toMillis()) {
-                newRequestPart = newRequestPart.concat(` That was a quick new request! You should consider leaving some for the others.`);
-              }
-            }
-          }
-
-          const my_request = { requested_message: `My Discord user ${userTag} (${userId}) has access to this wallet address.` };
-          const url_safe_string = encodeURIComponent( JSON.stringify( my_request ) );
-          const base64_encoded = Buffer.from(url_safe_string).toString('base64').replace('+', '-').replace('/', '_').replace(/=+$/, '');
-          const signer_is_url = `https://signer.is/#/sign/${ base64_encoded }`;
-
-          const row = new ActionRowBuilder<ButtonBuilder>()
-            .addComponents(new ButtonBuilder()
-              .setCustomId('sendSignatureForCheapDeposits')
-              .setStyle(ButtonStyle.Primary)
-              .setLabel('Enter Signature'));
-
-          const signerEmbed = new EmbedBuilder()
-            .setTitle('Signer.is')
-            .setURL(signer_is_url)
-            .setDescription('Prove your wallet address ownership here. You **MUST** use this link as it contains the message you need to sign.');
-
-          await interaction.editReply({
-            content: `Click on the Signer.is __link below__ and sign the requested message with the ` +
-                     `wallet address you want to use to perform your deposit on Goerli to prove ` +
-                     `ownership. Once you are done signing, click the *Copy Link* button on Signer.is ` +
-                     `and click the **Enter Signature** button to paste your signature URL.`,
-            components: [row],
-            embeds: [signerEmbed]
           });
 
         } else if (commandName === 'cheap-holesky-deposit') {
@@ -1568,9 +1259,6 @@ const main = function() {
       signed_message: string,
       claimed_signatory: string
     }
-
-    const existingCheapDepositsUserRequest = new Map<string, boolean>();
-    const existingCheapDepositsWalletRequest = new Map<string, boolean>();
 
     const existingCheapDepositsHoleskyUserRequest = new Map<string, boolean>();
     const existingCheapDepositsHoleskyWalletRequest = new Map<string, boolean>();
@@ -1954,298 +1642,6 @@ const main = function() {
             existingVerificationUserRequest.delete(userId);
           }
 
-        } else if (interaction.customId === 'ownerCheapDepositsVerify') {
-
-          // Check if the user already has been given cheap deposits recently.
-          const lastRequest = await getLastCheapDepositRequest(userId);
-          let newRequestPart = '';
-          if (lastRequest !== null) {
-            const dtLastRequested = DateTime.fromMillis(lastRequest.lastRequested * 1000);
-            const dtRequestAvailable = dtLastRequested.plus(cheapDepositDelay);
-
-            let durRequestAvailable = dtRequestAvailable.diff(DateTime.utc()).shiftTo('days', 'hours').normalize();
-            if (durRequestAvailable.days === 0) {
-              durRequestAvailable = durRequestAvailable.shiftTo('hours', 'minutes');
-            }
-            const formattedDuration = durRequestAvailable.toHuman();
-
-            if (DateTime.utc() < dtRequestAvailable) {
-              await interaction.followUp({
-                content: `You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for ${userMen}.`,
-                allowedMentions: { parse: ['users'], repliedUser: false }
-              });
-              reject(`You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for @${userTag} (${userId}).`);
-              return;
-            } else {
-              let negDurRequestAvailable = durRequestAvailable.negate().shiftTo('days', 'hours').normalize();
-              if (negDurRequestAvailable.days === 0) {
-                negDurRequestAvailable = negDurRequestAvailable.shiftTo('hours', 'minutes');
-              }
-              const newRequestFormattedDuration = negDurRequestAvailable.toHuman();
-
-              newRequestPart = ` Your new request was available ${newRequestFormattedDuration} ago.`;
-              if (negDurRequestAvailable.toMillis() <= quickNewRequest.toMillis()) {
-                newRequestPart = newRequestPart.concat(` That was a quick new request! You should consider leaving some for the others.`);
-              }
-            }
-          }
-
-          // Mutex on User ID
-          if (existingCheapDepositsUserRequest.get(userId) === true) {
-            await interaction.reply({
-              content: `You already have a pending cheap deposits request. Please wait until your request is completed for ${userMen}.`,
-              allowedMentions: { parse: ['users'], repliedUser: false }
-            });
-            reject(`You already have a pending cheap deposits request. Please wait until your request is completed for @${userTag} (${userId}).`);
-            return;
-          } else {
-            existingCheapDepositsUserRequest.set(userId, true);
-          }
-
-          try {
-
-            const signature = interaction.fields.getTextInputValue('signatureInput');
-
-            // Validate signature
-            await interaction.reply({ content: `Validating signature...`, ephemeral: true});
-            
-            const signatureRegexMatch = signature.match(/https\:\/\/signer\.is(\/#)?\/verify\/(?<signature>[A-Za-z0-9=]+)/);
-            if (signatureRegexMatch === null) {
-              await interaction.followUp({
-                content: `This is not a valid signature from Signer.is. Make sure to paste the full sharable link after signing the message. Clicking the *Copy link* button and pasting the result is the easiest way. Please try again for ${userMen}`,
-                allowedMentions: { parse: ['users'], repliedUser: false }
-              });
-              reject(`Invalid signature. ${signature} ${userTag} (${userId})`);
-              return;
-            }
-
-            const encodedSignature = signatureRegexMatch.groups?.signature;
-            if (encodedSignature === undefined) {
-              await interaction.followUp({
-                content: `Unable to parse signature from Signer.is. Make sure to paste the full sharable link after signing the message. Clicking the *Copy link* button and pasting the result is the easiest way. Please try again for ${userMen}`,
-                allowedMentions: { parse: ['users'], repliedUser: false }
-              });
-              reject(`Invalid signature. Unable to parse. ${signature} ${userTag} (${userId})`);
-              return;
-            }
-
-            // Decode signature
-            let signatureElements: any | null = null;
-            try {
-              signatureElements = JSON.parse(decodeURIComponent(Buffer.from(encodedSignature, 'base64').toString()));
-            } catch (error) {
-              await interaction.followUp({
-                content: `Unable to parse signature JSON from Signer.is ${error}. Make sure to paste the full sharable link after signing the message. Clicking the *Copy link* button and pasting the result is the easiest way. Please try again for ${userMen}`,
-                allowedMentions: { parse: ['users'], repliedUser: false }
-              });
-              reject(`Invalid signature. Unable to parse JSON. ${signature} ${error} ${userTag} (${userId})`);
-              return;
-            }
-              
-            const decodedSignature = signatureElements as signatureStructure;
-
-            if (
-              decodedSignature.claimed_message === undefined ||
-              decodedSignature.claimed_signatory === undefined ||
-              decodedSignature.signed_message === undefined
-              ) {
-              await interaction.followUp({
-                content: `Unexpected structure in signature. Are you trying to meddle with the bot? Please try again for ${userMen}`,
-                allowedMentions: { parse: ['users'], repliedUser: false }
-              });
-              reject(`Unexpected structure in signature. ${signatureElements} ${userTag} (${userId})`);
-              return;
-            }
-
-            // Validate signed message
-            await interaction.editReply({ content: `Verifying signed message...` });
-
-            const messageRegexMatch = decodedSignature.claimed_message.match(/My Discord user .+? \((?<userId>[^\)]+)\) has access to this wallet address\./);
-            if (messageRegexMatch === null) {
-              await interaction.followUp({
-                content: `The signature does not contain the correct signed message. Please try again using the Signer.is link provided for ${userMen}`,
-                allowedMentions: { parse: ['users'], repliedUser: false }
-              });
-              reject(`Invalid signed message. ${decodedSignature.claimed_message} ${userTag} (${userId})`);
-              return;
-            }
-
-            const signedMessageUserId = messageRegexMatch.groups?.userId;
-            if (signedMessageUserId === undefined) {
-              await interaction.followUp({
-                content: `Unable to parse signed message from Signer.is. Please try again for ${userMen}`,
-                allowedMentions: { parse: ['users'], repliedUser: false }
-              });
-              reject(`Invalid signed message. Unable to parse. ${decodedSignature.claimed_message} ${userTag} (${userId})`);
-              return;
-            }
-
-            if (signedMessageUserId !== userId) {
-              await interaction.followUp({
-                content: `The user ID included in the signed message does not match your Discord user ID. Please try again using the Signer.is link provided for ${userMen}`,
-                allowedMentions: { parse: ['users'], repliedUser: false }
-              });
-              reject(`User ID mismatch from the signed message. Expected ${userId} but got ${signedMessageUserId}. ${userTag} (${userId})`);
-              return;
-            }
-
-            const confirmedSignatory = utils.verifyMessage( decodedSignature.claimed_message, decodedSignature.signed_message ).toLowerCase();
-            const validSignature = confirmedSignatory.toLowerCase() === decodedSignature.claimed_signatory.toLowerCase();
-
-            if (!validSignature) {
-              await interaction.followUp({
-                content: `This is not a valid signature from Signer.is. Please try again using the Signer.is link provided for ${userMen}`,
-                allowedMentions: { parse: ['users'], repliedUser: false }
-              });
-              reject(`Not a valid signature after verifying the message for ${userTag} (${userId})`);
-              return;
-            }
-
-            // Verify if that wallet address is valid
-            await interaction.editReply({ content: `Verifying wallet address...` });
-            
-            if (!utils.isAddress(decodedSignature.claimed_signatory)) {
-              await interaction.followUp({
-                content: `The included wallet address in your signature (${decodedSignature.claimed_signatory}) is not valid for ${userMen}`,
-                allowedMentions: { parse: ['users'], repliedUser: false }
-              });
-              reject(`The included wallet address in the signature (${decodedSignature.claimed_signatory}) is not valid for ${userTag} (${userId})`);
-              return;
-            }
-
-            // Mutex on wallet address
-            const uniformedAddress = utils.getAddress(decodedSignature.claimed_signatory);
-
-            if (existingCheapDepositsWalletRequest.get(uniformedAddress) === true) {
-              await interaction.followUp({
-                content: `There is already a pending cheap deposits request for this wallet address (${uniformedAddress}). Please wait until that request is completed for ${userMen}.`,
-                allowedMentions: { parse: ['users'], repliedUser: false }
-              });
-              reject(`There is already a pending cheap deposits request for this wallet address (${uniformedAddress}). Please wait until that request is completed for @${userTag} (${userId}).`);
-              return;
-            } else {
-              existingCheapDepositsWalletRequest.set(uniformedAddress, true);
-            }
-
-            try {
-
-              // Verify if that wallet address is not already associated with another Discord user
-              await interaction.editReply({ content: `Verifying if this wallet address was already used by another Discord user...` });
-
-              const walletAlreadyUsed = await isCheapDepositsWalletAlreadyUsed(uniformedAddress, userId);
-
-              if (walletAlreadyUsed) {
-                await interaction.followUp({
-                  content: `This this wallet address (${uniformedAddress}) was already used with a different Discord user. Please try again with a different wallet address for ${userMen}.`,
-                  allowedMentions: { parse: ['users'], repliedUser: false }
-                });
-                reject(`This this wallet address (${uniformedAddress}) was already used with a different Discord user. Please try again with a different wallet address for @${userTag} (${userId}).`);
-                return;
-              }
-
-              // Top up the proxy contract
-              await interaction.editReply({ content: `Ensuring there is enough funds on our contract...` });
-
-              const targetMultiplier = minRelativeCheapDepositCount * cheapDepositCount;
-
-              const targetBalance = validatorDepositCost.mul(targetMultiplier).add(
-                maxTransactionCost.mul(targetMultiplier));
-              const currentContractBalance = await goerliProvider.getBalance(depositProxyContractAddress);
-
-              if (targetBalance.gt(currentContractBalance)) {
-                const sendingAmount = targetBalance.sub(currentContractBalance);
-
-                console.log(`Refilling proxy contract. Our target: ${utils.formatEther(targetBalance)}, ` +
-                  `current balance: ${utils.formatEther(currentContractBalance)}, ` +
-                  `sending amount: ${utils.formatEther(sendingAmount)}`);
-
-                await goerliTransactionMutex.runExclusive(async () => {
-                  const transaction = await goerliWallet.sendTransaction({
-                    to: depositProxyContractAddress,
-                    value: sendingAmount
-                  });
-
-                  await transaction.wait(1);
-                });
-                
-              }
-
-              // Send tokens to user
-              await interaction.editReply({ content: `Whitelisting the wallet address for ${cheapDepositCount} cheap deposits...` });
-
-              const depositProxyContract = new Contract(depositProxyContractAddress, depositProxyContractAbi, goerliWallet);
-              const targetTokenBalance = cheapDepositCount;
-              const currentTokenBalance = await depositProxyContract.balanceOf(uniformedAddress, 0) as number;
-              if (currentTokenBalance < targetTokenBalance) {
-                const sendingAmount = targetTokenBalance - currentTokenBalance;
-
-                console.log(`Sending cheap deposits tokens to user (${uniformedAddress}). Our target: ${targetTokenBalance}, ` +
-                  `current balance: ${currentTokenBalance}, ` +
-                  `sending amount: ${sendingAmount}`);
-
-                await goerliTransactionMutex.runExclusive(async () => {
-                  const transaction: providers.TransactionResponse = await depositProxyContract.safeTransferFrom(
-                    goerliWallet.address, uniformedAddress, 0, sendingAmount, Buffer.from(''));
-                  await transaction.wait(1);
-                });
-              }
-
-              // Top up user wallet
-              await interaction.editReply({ content: `Ensuring you have enough funds in that wallet for the ${cheapDepositCount} cheap deposits...` });
-
-              const targetWalletBalance = cheapDepositCost.mul(cheapDepositCount).add(maxTransactionCost.mul(cheapDepositCount));
-              const currentWalletBalance = await goerliProvider.getBalance(uniformedAddress);
-
-              if (targetWalletBalance.gt(currentWalletBalance)) {
-                const sendingAmount = targetWalletBalance.sub(currentWalletBalance);
-
-                console.log(`Filling user wallet (${uniformedAddress}). Our target: ${utils.formatEther(targetWalletBalance)}, ` +
-                  `current balance: ${utils.formatEther(currentWalletBalance)}, ` +
-                  `sending amount: ${utils.formatEther(sendingAmount)}`);
-
-                await goerliTransactionMutex.runExclusive(async () => {
-                  const transaction = await goerliWallet.sendTransaction({
-                    to: uniformedAddress,
-                    value: sendingAmount
-                  });
-
-                  await transaction.wait(1);
-                });
-              }
-
-              // Storing the wallet address for the cheap deposits
-              await interaction.editReply({ content: `Storing your information...` });
-
-              await storeCheapDeposits(uniformedAddress, userId);
-
-              await interaction.editReply({ content: `Completed.` });
-
-              const officialLinksMen = channelMention(process.env.OFFICIAL_LINKS_CHANNEL_ID as string);
-
-              await interaction.followUp({
-                content: `You can now perform ${cheapDepositCount} cheap deposits on <https://goerli.launchpad.ethstaker.cc/> ` +
-                `with your wallet address \`${uniformedAddress}\`. Make sure to check out the guides and tools for configuring your ` +
-                `machine to run a validator on Goerli in ${officialLinksMen}.\n\nYou **must** set your withdrawal address to ` +
-                `\`0x4D496CcC28058B1D74B7a19541663E21154f9c84\` when creating your validator keys and your deposit file in order ` +
-                `to use this process and to complete your deposit. This is only required for this launchpad. When on Mainnet, you ` +
-                `should use a withdrawal address you control if you want to use one.\n\nPerforming this deposit transaction ` +
-                `can cost more in gas than the actual cheap deposit cost of 0.0001 Goerli ETH during time of high gas ` +
-                `price. If you end up in this situation, you can either try to obtain more Goerli ETH from ` +
-                `<https://faucetlink.to/goerli>, you can wait until gas price come down (see <https://goerli.beaconcha.in/gasnow> ` +
-                `to monitor gas price on Goerli) or you can broadcast your transaction with a custom low gas price and wait until ` +
-                `it is picked up by the network for ${userMen}.`,
-                allowedMentions: { parse: ['users'], repliedUser: false }
-              });
-              resolve();
-
-            } finally {
-              existingCheapDepositsWalletRequest.delete(uniformedAddress);
-            }
-
-          } finally {
-            existingCheapDepositsUserRequest.delete(userId);
-          }
-        
         } else if (interaction.customId === 'ownerCheapDepositsHoleskyVerify') {
 
           // Check if the user already has been given cheap deposits recently.
@@ -2578,56 +1974,6 @@ const main = function() {
 
           await interaction.showModal(modal);
 
-        } else if (interaction.customId === 'sendSignatureForCheapDeposits') {
-
-          // Check if the user already has been given cheap deposits recently.
-          const lastRequest = await getLastCheapDepositRequest(userId);
-          let newRequestPart = '';
-          if (lastRequest !== null) {
-            const dtLastRequested = DateTime.fromMillis(lastRequest.lastRequested * 1000);
-            const dtRequestAvailable = dtLastRequested.plus(cheapDepositDelay);
-
-            let durRequestAvailable = dtRequestAvailable.diff(DateTime.utc()).shiftTo('days', 'hours').normalize();
-            if (durRequestAvailable.days === 0) {
-              durRequestAvailable = durRequestAvailable.shiftTo('hours', 'minutes');
-            }
-            const formattedDuration = durRequestAvailable.toHuman();
-
-            if (DateTime.utc() < dtRequestAvailable) {
-              await interaction.reply({
-                content: `You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for ${userMen}.`,
-                allowedMentions: { parse: ['users'], repliedUser: false }
-              });
-              reject(`You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for @${userTag} (${userId}).`);
-              return;
-            } else {
-              let negDurRequestAvailable = durRequestAvailable.negate().shiftTo('days', 'hours').normalize();
-              if (negDurRequestAvailable.days === 0) {
-                negDurRequestAvailable = negDurRequestAvailable.shiftTo('hours', 'minutes');
-              }
-              const newRequestFormattedDuration = negDurRequestAvailable.toHuman();
-
-              newRequestPart = ` Your new request was available ${newRequestFormattedDuration} ago.`;
-              if (negDurRequestAvailable.toMillis() <= quickNewRequest.toMillis()) {
-                newRequestPart = newRequestPart.concat(` That was a quick new request! You should consider leaving some for the others.`);
-              }
-            }
-          }
-
-          const modal = new ModalBuilder()
-            .setCustomId('ownerCheapDepositsVerify')
-            .setTitle('Wallet ownership');
-
-          const signatureInput = new TextInputBuilder()
-            .setCustomId('signatureInput')
-            .setLabel("Paste your signature URL here.")
-            .setStyle(TextInputStyle.Paragraph);
-
-          const firstActionRow = new ActionRowBuilder<TextInputBuilder>().addComponents(signatureInput);
-          modal.addComponents(firstActionRow);
-
-          await interaction.showModal(modal);
-        
         } else if (interaction.customId === 'sendSignatureForCheapDepositsHolesky') {
 
           // Check if the user already has been given cheap deposits recently.
