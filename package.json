@@ -1,7 +1,7 @@
 {
   "name": "ethstaker-discord-bot",
   "version": "0.1.0",
-  "packageManager": "yarn@3.2.3",
+  "packageManager": "yarn@4.1.0",
   "repository": "https://github.com/remyroy/ethstaker-discord-bot",
   "author": "Rémy Roy <remyroy@remyroy.com>",
   "license": "MIT",
@@ -21,7 +21,6 @@
     "discord-api-types": "^0.37.50",
     "discord.js": "^14.11.0",
     "dotenv": "^16.0.1",
-    "erlpack": "^0.1.4",
     "ethers": "^5.7.1",
     "eventsource": "^2.0.2",
     "luxon": "^3.2.1",

@@ -41,6 +41,7 @@ const passportScoreThreshold = Number(process.env.PASSPORT_SCORE_THRESHOLD);
 const EPOCHS_PER_DAY = 225;
 const MIN_PER_EPOCH_CHURN_LIMIT = 4;
 const CHURN_LIMIT_QUOTIENT = 65536;
+const MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT = 8;
 
 const PASSPORT_SCORE_URI = `https://api.scorer.gitcoin.co/registry/score/${process.env.GITCOIN_PASSPORT_SCORER_ID}/`;
 const SUBMIT_PASSPORT_URI = 'https://api.scorer.gitcoin.co/registry/submit-passport';
@@ -78,7 +79,7 @@ function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function churn_limit(active_validators: number | undefined) {
+function validator_churn_limit(active_validators?: number): number {
   let validators = 1;
   if (active_validators !== undefined){
     validators = active_validators;
@@ -86,8 +87,15 @@ function churn_limit(active_validators: number | undefined) {
   return Math.max(MIN_PER_EPOCH_CHURN_LIMIT, Math.floor(validators / CHURN_LIMIT_QUOTIENT))
 }
 
-function churn_limit_per_day(active_validators: number | undefined) {
-  return churn_limit(active_validators) * EPOCHS_PER_DAY;
+function churn_limit_per_day(churn_limit: number) {
+  return churn_limit * EPOCHS_PER_DAY;
+}
+
+function get_validator_activation_churn_limit(network: string, active_validators?: number): number {
+  if (network === 'holesky') {
+    return Math.min(MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT, validator_churn_limit(active_validators));
+  }
+  return validator_churn_limit(active_validators);
 }
 
 const main = function() {
@@ -891,13 +899,13 @@ const main = function() {
             let activationQueueMessage = `The **activation queue** is empty. ${activationNormalProcessingMsg}`;
             let exitQueueMessage = 'The **exit queue** is empty. It should only take a few minutes for a validator to leave the exit queue. The exit queue is only a small part of the full exit / withdrawal process. See <https://media.discordapp.net/attachments/939440360789266462/1105846872700108850/exit1.png> for more details.';
 
-            const churnLimit = churn_limit(queryResponse.data.validatorscount);
-            const churnPerDay = churn_limit_per_day(queryResponse.data.validatorscount);
-
-            const churnText = `(churn limit is ${churnLimit} per epoch or ${churnPerDay} per day with ${queryResponse.data.validatorscount} validators)`;
-
             if (queryResponse.data.beaconchain_entering > 0) {
-              const activationDays = queryResponse.data.beaconchain_entering / churnPerDay;
+              const activationChurnLimit = get_validator_activation_churn_limit(network, queryResponse.data.validatorscount);
+              const activationChurnPerDay = churn_limit_per_day(activationChurnLimit);
+
+              const activationChurnText = `(churn limit is ${activationChurnLimit} per epoch or ${activationChurnPerDay} per day with ${queryResponse.data.validatorscount} validators)`;
+
+              const activationDays = queryResponse.data.beaconchain_entering / activationChurnPerDay;
               let activationDuration = Duration.fromObject({ days: activationDays }).shiftTo('days', 'hours').normalize();
               if (activationDuration.days === 0) {
                 activationDuration = activationDuration.shiftTo('hours', 'minutes');
@@ -905,20 +913,25 @@ const main = function() {
               const formattedActivationDuration = activationDuration.toHuman();
 
               if (activationDuration.toMillis() <= activationNormalProcessingMaxDuration.toMillis()) {
-                activationQueueMessage = `There are **${queryResponse.data.beaconchain_entering} validators awaiting to be activated**. The queue should clear out in ${formattedActivationDuration} if there is no new deposit ${churnText}. ${activationNormalProcessingMsg}`;
+                activationQueueMessage = `There are **${queryResponse.data.beaconchain_entering} validators awaiting to be activated**. The queue should clear out in ${formattedActivationDuration} if there is no new deposit ${activationChurnText}. ${activationNormalProcessingMsg}`;
               } else {
-                activationQueueMessage = `There are **${queryResponse.data.beaconchain_entering} validators awaiting to be activated**. It should take at least ${formattedActivationDuration} for a new deposit to be processed and an associated validator to be activated ${churnText}.`;
+                activationQueueMessage = `There are **${queryResponse.data.beaconchain_entering} validators awaiting to be activated**. It should take at least ${formattedActivationDuration} for a new deposit to be processed and an associated validator to be activated ${activationChurnText}.`;
               }
             }
             if (queryResponse.data.beaconchain_exiting > 0) {
-              const exitDays = queryResponse.data.beaconchain_exiting / churnPerDay;
+              const exitChurnLimit = validator_churn_limit(queryResponse.data.validatorscount);
+              const exitChurnPerDay = churn_limit_per_day(exitChurnLimit);
+
+              const exitChurnText = `(churn limit is ${exitChurnLimit} per epoch or ${exitChurnPerDay} per day with ${queryResponse.data.validatorscount} validators)`;
+
+              const exitDays = queryResponse.data.beaconchain_exiting / exitChurnPerDay;
               let exitDuration = Duration.fromObject({ days: exitDays }).shiftTo('days', 'hours').normalize();
               if (exitDuration.days === 0) {
                 exitDuration = exitDuration.shiftTo('hours', 'minutes');
               }
               const formattedExitDuration = exitDuration.toHuman();
 
-              exitQueueMessage = `There are **${queryResponse.data.beaconchain_exiting} validators awaiting to exit** the network. It should take at least ${formattedExitDuration} for a voluntary exit to be processed and an associated validator to leave the exit queue ${churnText}. The exit queue is only a small part of the full exit / withdrawal process. See <https://media.discordapp.net/attachments/939440360789266462/1105846872700108850/exit1.png> for more details.`;
+              exitQueueMessage = `There are **${queryResponse.data.beaconchain_exiting} validators awaiting to exit** the network. It should take at least ${formattedExitDuration} for a voluntary exit to be processed and an associated validator to leave the exit queue ${exitChurnText}. The exit queue is only a small part of the full exit / withdrawal process. See <https://media.discordapp.net/attachments/939440360789266462/1105846872700108850/exit1.png> for more details.`;
             }
 
             console.log(`Current queue details for ${network} for @${userTag} (${userId})\n\n- ${activationQueueMessage}\n- ${exitQueueMessage}`);
