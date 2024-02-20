@@ -92,7 +92,7 @@ function churn_limit_per_day(churn_limit: number) {
 }
 
 function get_validator_activation_churn_limit(network: string, active_validators?: number): number {
-  if (network === 'holesky') {
+  if (network === 'Holesky') {
     return Math.min(MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT, validator_churn_limit(active_validators));
   }
   return validator_churn_limit(active_validators);
