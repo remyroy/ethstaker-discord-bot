@@ -121,6 +121,9 @@ const main = function() {
     holeskyProvider.getBlockNumber()
     .then((currentBlockNumber) => {
       console.log(`Holesky RPC provider is at block number ${currentBlockNumber}.`);
+    })
+    .catch((error) => {
+      console.log(`${error} while trying to get block number.`);
     });
 
     // Configuring the faucet commands
