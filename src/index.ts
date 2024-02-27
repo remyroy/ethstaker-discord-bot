@@ -934,7 +934,7 @@ const main = function() {
               }
               const formattedExitDuration = exitDuration.toHuman();
 
-              exitQueueMessage = `There are **${queryResponse.data.beaconchain_exiting} validators awaiting to exit** the network. It should take at least ${formattedExitDuration} for a voluntary exit to be processed and an associated validator to leave the exit queue ${exitChurnText}. The exit queue is only a small part of the full exit / withdrawal process. See <https://media.discordapp.net/attachments/939440360789266462/1105846872700108850/exit1.png> for more details.`;
+              exitQueueMessage = `There are **${queryResponse.data.beaconchain_exiting} validators awaiting to exit** the network. It should take at least ${formattedExitDuration} for a voluntary exit to be processed and an associated validator to leave the exit queue ${exitChurnText}. The exit queue is only a small part of the full exit / withdrawal process. See [this diagram](https://cdn.discordapp.com/attachments/694822223575384099/1210280412539260998/exit-process.png?ex=65e9fc78&is=65d78778&hm=4c38177604c07ddf1bf9133ffae05b133a1756b314e7e78f19ad406fd26d1575&) for more details.`;
             }
 
             console.log(`Current queue details for ${network} for @${userTag} (${userId})\n\n- ${activationQueueMessage}\n- ${exitQueueMessage}`);
