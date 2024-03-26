@@ -43,6 +43,8 @@ const MIN_PER_EPOCH_CHURN_LIMIT = 4;
 const CHURN_LIMIT_QUOTIENT = 65536;
 const MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT = 8;
 
+const GITCOIN_PASSPORT_URL = 'https://passport.gitcoin.co/';
+
 const PASSPORT_SCORE_URI = `https://api.scorer.gitcoin.co/registry/score/${process.env.GITCOIN_PASSPORT_SCORER_ID}/`;
 const SUBMIT_PASSPORT_URI = 'https://api.scorer.gitcoin.co/registry/submit-passport';
 
@@ -1046,25 +1048,14 @@ const main = function() {
               .setCustomId('sendSignature')
               .setStyle(ButtonStyle.Primary)
               .setLabel('Enter Signature'));
-          
-          const gitcoinPassportEmbed = new EmbedBuilder()
-            .setTitle('Gitcoin Passport')
-            .setURL('https://passport.gitcoin.co/')
-            .setDescription('Create your Gitcoin Passport or add stamps to your Gitcoin Passport.');
-
-          const signerEmbed = new EmbedBuilder()
-            .setTitle('Signer.is')
-            .setURL(signer_is_url)
-            .setDescription('Prove your wallet address ownership here. You **MUST** use this link as it contains the message you need to sign.');
 
           await interaction.reply({
-            content: `Create your Gitcoin Passport, add enough stamps in it and ` +
+            content: `Create [your Gitcoin Passport](${GITCOIN_PASSPORT_URL}), add enough stamps in it and ` +
                      `prove you own that wallet address. Once you are done filling ` +
-                     `your Gitcoin Passport, click on the __link below__ to sign a message ` +
+                     `your Gitcoin Passport, click on [this Signer.is link](${signer_is_url}) to sign a message ` +
                      `proving ownership, click the *Copy Link* button on Signer.is ` +
                      `and click the **Enter Signature** button to paste your signature URL.`,
             components: [row],
-            embeds: [gitcoinPassportEmbed, signerEmbed],
             ephemeral: true
           });
 
@@ -1244,18 +1235,12 @@ const main = function() {
               .setStyle(ButtonStyle.Primary)
               .setLabel('Enter Signature'));
 
-          const signerEmbed = new EmbedBuilder()
-            .setTitle('Signer.is')
-            .setURL(signer_is_url)
-            .setDescription('Prove your wallet address ownership here. You **MUST** use this link as it contains the message you need to sign.');
-
           await interaction.editReply({
-            content: `Click on the Signer.is __link below__ and sign the requested message with the ` +
+            content: `Click on [this Signer.is link](${signer_is_url}) and sign the requested message with the ` +
                      `wallet address you want to use to perform your deposit on Holesky to prove ` +
                      `ownership. Once you are done signing, click the *Copy Link* button on Signer.is ` +
                      `and click the **Enter Signature** button to paste your signature URL.`,
-            components: [row],
-            embeds: [signerEmbed]
+            components: [row]
           });
         
         } else {
