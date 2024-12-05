@@ -2120,7 +2120,6 @@ const main = function() {
           interface globalResponse {
             data: {
               current_epoch_active_gwei: number,
-              previous_epoch_active_gwei: number,
               current_epoch_target_attesting_gwei: number,
               previous_epoch_target_attesting_gwei: number,
               previous_epoch_head_attesting_gwei: number
@@ -2130,7 +2129,7 @@ const main = function() {
           const queryResponse = response.data as globalResponse;
           const participationRateDate = DateTime.utc().toMillis();
 
-          const prevParticipationRate = queryResponse.data.previous_epoch_target_attesting_gwei / queryResponse.data.previous_epoch_active_gwei;
+          const prevParticipationRate = queryResponse.data.previous_epoch_target_attesting_gwei / queryResponse.data.current_epoch_active_gwei;
           const currParticipationRate = queryResponse.data.current_epoch_target_attesting_gwei / queryResponse.data.current_epoch_active_gwei;
 
           const fixedPrevParticipationRate = (prevParticipationRate * 100.0).toLocaleString('en-US', { maximumFractionDigits: 2 }) + '%';
