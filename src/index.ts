@@ -1859,8 +1859,8 @@ const main = function() {
               await interaction.editReply({ content: `Whitelisting the wallet address for ${cheapDepositCount} cheap deposits...` });
 
               const depositProxyContract = new ethers.Contract(depositProxyContractHoleskyAddress, depositProxyContractAbi, holeskyWallet);
-              const targetTokenBalance = cheapDepositCount;
-              const currentTokenBalance = await depositProxyContract.balanceOf(uniformedAddress, 0) as number;
+              const targetTokenBalance = BigInt(cheapDepositCount);
+              const currentTokenBalance = await depositProxyContract.balanceOf(uniformedAddress, 0) as bigint;
               if (currentTokenBalance < targetTokenBalance) {
                 const sendingAmount = targetTokenBalance - currentTokenBalance;
 
