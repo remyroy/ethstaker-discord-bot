@@ -6,7 +6,7 @@ import {
   GuildMemberRoleManager, TextChannel, ModalBuilder, TextInputBuilder,
   TextInputStyle, ActionRowBuilder, ModalSubmitInteraction,
   CommandInteraction, ButtonBuilder, ButtonInteraction, ButtonStyle, EmbedBuilder, GuildMember } from 'discord.js';
-import { BigNumber, providers, utils, Wallet, Contract } from 'ethers';
+import { ethers } from "ethers";
 import { Database, RunResult } from 'sqlite3';
 
 import { MessageFlags } from 'discord-api-types/v9';
@@ -19,11 +19,11 @@ import seedrandom from 'seedrandom';
 
 const db = new Database('db.sqlite');
 const quickNewRequest = Duration.fromObject({ days: 1 });
-const maxTransactionCost = utils.parseUnits("0.0001", "ether");
-const cheapDepositCost = utils.parseUnits("0.0001", "ether");
+const maxTransactionCost = ethers.parseUnits("0.0001", "ether");
+const cheapDepositCost = ethers.parseUnits("0.0001", "ether");
 const cheapDepositCount = 2;
 const minRelativeCheapDepositCount = 5;
-const validatorDepositCost = utils.parseUnits("32", "ether");
+const validatorDepositCost = ethers.parseUnits("32", "ether");
 
 const newAccountDelay = Duration.fromObject({ days: 14 });
 const joinedDiscordServerDelay = Duration.fromObject({ hours: 44 });
@@ -64,10 +64,10 @@ interface networkConfig {
   rateLimitDuration: Duration;
   explorerTxRoot: string;
   existingRequest: Map<string, boolean>;
-  minEthers: BigNumber;
-  requestAmount: BigNumber;
-  wallet: Wallet;
-  provider: providers.Provider;
+  minEthers: bigint;
+  requestAmount: bigint;
+  wallet: ethers.Wallet;
+  provider: ethers.Provider;
   transactionMutex: Mutex;
   needsVerification: boolean;
 };
@@ -100,15 +100,15 @@ function get_validator_activation_churn_limit(network: string, active_validators
 const main = function() {
   return new Promise<void>(async (mainResolve, mainReject) => {
 
-    const mainnetProvider = new providers.InfuraProvider(providers.getNetwork('mainnet'), process.env.INFURA_API_KEY);
+    const mainnetProvider = new ethers.InfuraProvider('mainnet', process.env.INFURA_API_KEY);
 
     mainnetProvider.getBlockNumber()
     .then((currentBlockNumber) => {
       console.log(`Mainnet RPC provider is at block number ${currentBlockNumber}.`);
     });
 
-    const sepoliaProvider = new providers.JsonRpcProvider(`https://sepolia.infura.io/v3/${process.env.INFURA_API_KEY}`);
-    const holeskyProvider = new providers.JsonRpcProvider(`https://rpc.holesky.ethpandaops.io`);
+    const sepoliaProvider = new ethers.InfuraProvider('sepolia', process.env.INFURA_API_KEY);
+    const holeskyProvider = new ethers.JsonRpcProvider('https://rpc.holesky.ethstaker.cc/');
 
     const sepoliaTransactionMutex = new Mutex();
     const holeskyTransactionMutex = new Mutex();
@@ -128,7 +128,7 @@ const main = function() {
     // Configuring the faucet commands
     const faucetCommandsConfig = new Map<string, networkConfig>();
 
-    const holeskyWallet = new Wallet(process.env.FAUCET_PRIVATE_KEY as string, holeskyProvider);
+    const holeskyWallet = new ethers.Wallet(process.env.FAUCET_PRIVATE_KEY as string, holeskyProvider);
 
     faucetCommandsConfig.set('request-sepolia-eth', {
       network: 'Sepolia',
@@ -140,9 +140,9 @@ const main = function() {
       rateLimitDuration: Duration.fromObject({ days: 7 }),
       explorerTxRoot: 'https://sepolia.etherscan.io/tx/',
       existingRequest: new Map<string, boolean>(),
-      minEthers: validatorDepositCost.add(maxTransactionCost.mul(2)),
-      requestAmount: utils.parseUnits("1", "ether"),
-      wallet: new Wallet(process.env.FAUCET_PRIVATE_KEY as string, sepoliaProvider),
+      minEthers: validatorDepositCost + (maxTransactionCost * 2n),
+      requestAmount: ethers.parseUnits("1", "ether"),
+      wallet: new ethers.Wallet(process.env.FAUCET_PRIVATE_KEY as string, sepoliaProvider),
       provider: sepoliaProvider,
       transactionMutex: sepoliaTransactionMutex,
       needsVerification: true,
@@ -159,12 +159,12 @@ const main = function() {
       wallet.getAddress()
       .then((address) => {
         console.log(`${network} faucet wallet loaded at address ${address}.`);
-        wallet.getBalance().then((balance) => {
-          console.log(`${network} faucet wallet balance is ${utils.formatEther(balance)}.`);
-          if (balance.lt(minEthers)) {
+        wallet.provider?.getBalance(wallet.getAddress()).then((balance) => {
+          console.log(`${network} faucet wallet balance is ${ethers.formatEther(balance)}.`);
+          if (balance < minEthers) {
             console.warn(`Not enough ${currency} to provide services for the ${network} faucet.`);
           } else {
-            const remainingRequests = balance.div(requestAmount);
+            const remainingRequests = balance / requestAmount;
             console.log(`There are ${remainingRequests} potential remaining requests for the ${network} faucet.`)
           }
         });
@@ -748,7 +748,7 @@ const main = function() {
             } else {
               // Valid address check
               await interaction.editReply(`Checking if ${targetAddress} is a valid address...`);
-              if (!utils.isAddress(targetAddress)) {
+              if (!ethers.isAddress(targetAddress)) {
                 await interaction.followUp({
                   content: `The wallet address provided (${targetAddress}) is not valid for ${userMen}`,
                   allowedMentions: { parse: ['users'], repliedUser: false }
@@ -767,18 +767,18 @@ const main = function() {
             await interaction.editReply(`Checking if you already have enough ${currency}...`);
             try {
               const targetBalance = await provider.getBalance(targetAddress);
-              if (targetBalance.gte(requestAmount)) {
+              if (targetBalance >= requestAmount) {
                 await storeLastRequest(userId, targetAddress, tableName);
 
                 const enoughReason = config.enoughReason;
                 await interaction.followUp({
-                  content: `You already have ${utils.formatEther(targetBalance)} ${currency} in ${targetAddress}. ${enoughReason} for ${userMen}.`,
+                  content: `You already have ${ethers.formatEther(targetBalance)} ${currency} in ${targetAddress}. ${enoughReason} for ${userMen}.`,
                   allowedMentions: { parse: ['users'], repliedUser: false }
                 });
-                reject(`You already have ${utils.formatEther(targetBalance)} ${currency} in ${targetAddress}. ${enoughReason} for @${userTag} (${userId}).`);
+                reject(`You already have ${ethers.formatEther(targetBalance)} ${currency} in ${targetAddress}. ${enoughReason} for @${userTag} (${userId}).`);
                 return;
               }
-              sendingAmount = requestAmount.sub(targetBalance);
+              sendingAmount = requestAmount - targetBalance;
             } catch (error) {
               await interaction.followUp(`Error while trying to get balance from ${targetAddress} for ${userMen}. ${error}`);
               reject(`Error while trying to get balance from ${targetAddress} for @${userTag} (${userId}). ${error}`);
@@ -788,13 +788,13 @@ const main = function() {
             // Verify that we have enough currency left in the faucet
             const wallet = config.wallet;
             const network = config.network;
-            const minNeeded = sendingAmount.add(maxTransactionCost);
-            let faucetBalance = BigNumber.from(0);
+            const minNeeded = sendingAmount + maxTransactionCost;
+            let faucetBalance = 0n;
 
             await interaction.editReply('Checking if we have enough fund for this request...');
             try {
-              faucetBalance = await wallet.getBalance();
-              if (faucetBalance.lt(minNeeded)) {
+              faucetBalance = await wallet.provider?.getBalance(wallet.getAddress()) as bigint;
+              if (faucetBalance < minNeeded) {
                 await interaction.followUp({
                   content: `The ${network} faucet is empty. Please contact an administrator to fill it up. From ${userMen}.`,
                   allowedMentions: { parse: ['users'], repliedUser: false }
@@ -809,9 +809,9 @@ const main = function() {
             }
 
             // Send the currency
-            await interaction.editReply(`Sending ${utils.formatEther(sendingAmount)} ${currency} to ${targetAddress}...`);
+            await interaction.editReply(`Sending ${ethers.formatEther(sendingAmount)} ${currency} to ${targetAddress}...`);
             try {
-              let transaction: providers.TransactionResponse | null = null;
+              let transaction: ethers.TransactionResponse | null = null;
               let explorerTxURL: string | null = null;
               await transactionMutex.runExclusive(async () => {
                 transaction = await wallet.sendTransaction({
@@ -825,12 +825,12 @@ const main = function() {
                   return;
                 }
   
-                transaction = transaction as unknown as providers.TransactionResponse;
+                transaction = transaction as unknown as ethers.TransactionResponse;
   
                 const transactionHash = transaction.hash;
                 const explorerTxRoot = config.explorerTxRoot;
                 explorerTxURL = explorerTxRoot + transactionHash;
-                await interaction.editReply(`${utils.formatEther(sendingAmount)} ${currency} have been sent to ${targetAddress}. Explore that transaction on ${explorerTxURL}. Waiting for 1 confirm...`);
+                await interaction.editReply(`${ethers.formatEther(sendingAmount)} ${currency} have been sent to ${targetAddress}. Explore that transaction on ${explorerTxURL}. Waiting for 1 confirm...`);
                 await transaction.wait(1);
               });
 
@@ -838,19 +838,19 @@ const main = function() {
               
               await interaction.editReply(`Transaction confirmed with 1 block confirmation.`);
               
-              const remainingRequests = faucetBalance.sub(sendingAmount).div(requestAmount);
-              console.log(`${utils.formatEther(sendingAmount)} ${currency} have been sent to ${targetAddress} for @${userTag} (${userId}).${newRequestPart}`);
+              const remainingRequests = (faucetBalance - sendingAmount) / requestAmount;
+              console.log(`${ethers.formatEther(sendingAmount)} ${currency} have been sent to ${targetAddress} for @${userTag} (${userId}).${newRequestPart}`);
               console.log(`There are ${remainingRequests} remaining requests with the current balance.`);
 
               await interaction.followUp({
-                content: `${utils.formatEther(sendingAmount)} ${currency} have been sent to ${targetAddress} for ${userMen}.${newRequestPart} Explore that transaction on ${explorerTxURL}\n\nThere are ${remainingRequests} remaining requests with the current balance.`,
+                content: `${ethers.formatEther(sendingAmount)} ${currency} have been sent to ${targetAddress} for ${userMen}.${newRequestPart} Explore that transaction on ${explorerTxURL}\n\nThere are ${remainingRequests} remaining requests with the current balance.`,
                 allowedMentions: { parse: ['users'], repliedUser: false },
                 flags: MessageFlags.SuppressEmbeds });
 
             } catch (error) {
-              console.log(`Error while trying to send ${utils.formatEther(sendingAmount)} ${currency} to ${targetAddress} for @${userTag} (${userId}). ${error}`);
+              console.log(`Error while trying to send ${ethers.formatEther(sendingAmount)} ${currency} to ${targetAddress} for @${userTag} (${userId}). ${error}`);
               console.log(error);
-              await interaction.followUp(`Error while trying to send ${utils.formatEther(sendingAmount)} ${currency} to ${targetAddress} for ${userMen}. ${error}`);
+              await interaction.followUp(`Error while trying to send ${ethers.formatEther(sendingAmount)} ${currency} to ${targetAddress} for ${userMen}. ${error}`);
             }
 
           } catch (error) {
@@ -1382,7 +1382,7 @@ const main = function() {
               return;
             }
 
-            const confirmedSignatory = utils.verifyMessage( decodedSignature.claimed_message, decodedSignature.signed_message ).toLowerCase();
+            const confirmedSignatory = ethers.verifyMessage( decodedSignature.claimed_message, decodedSignature.signed_message ).toLowerCase();
             const validSignature = confirmedSignatory.toLowerCase() === decodedSignature.claimed_signatory.toLowerCase();
 
             if (!validSignature) {
@@ -1397,7 +1397,7 @@ const main = function() {
             // Verify if that wallet address is valid
             await interaction.editReply({ content: `Verifying wallet address...` });
             
-            if (!utils.isAddress(decodedSignature.claimed_signatory)) {
+            if (!ethers.isAddress(decodedSignature.claimed_signatory)) {
               await interaction.followUp({
                 content: `The included wallet address in your signature (${decodedSignature.claimed_signatory}) is not valid for ${userMen}`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
@@ -1407,7 +1407,7 @@ const main = function() {
             }
 
             // Mutex on wallet address
-            const uniformedAddress = utils.getAddress(decodedSignature.claimed_signatory);
+            const uniformedAddress = ethers.getAddress(decodedSignature.claimed_signatory);
 
             if (existingVerificationWalletRequest.get(uniformedAddress) === true) {
               await interaction.followUp({
@@ -1775,7 +1775,7 @@ const main = function() {
               return;
             }
 
-            const confirmedSignatory = utils.verifyMessage( decodedSignature.claimed_message, decodedSignature.signed_message ).toLowerCase();
+            const confirmedSignatory = ethers.verifyMessage( decodedSignature.claimed_message, decodedSignature.signed_message ).toLowerCase();
             const validSignature = confirmedSignatory.toLowerCase() === decodedSignature.claimed_signatory.toLowerCase();
 
             if (!validSignature) {
@@ -1790,7 +1790,7 @@ const main = function() {
             // Verify if that wallet address is valid
             await interaction.editReply({ content: `Verifying wallet address...` });
             
-            if (!utils.isAddress(decodedSignature.claimed_signatory)) {
+            if (!ethers.isAddress(decodedSignature.claimed_signatory)) {
               await interaction.followUp({
                 content: `The included wallet address in your signature (${decodedSignature.claimed_signatory}) is not valid for ${userMen}`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
@@ -1800,7 +1800,7 @@ const main = function() {
             }
 
             // Mutex on wallet address
-            const uniformedAddress = utils.getAddress(decodedSignature.claimed_signatory);
+            const uniformedAddress = ethers.getAddress(decodedSignature.claimed_signatory);
 
             if (existingCheapDepositsHoleskyWalletRequest.get(uniformedAddress) === true) {
               await interaction.followUp({
@@ -1832,18 +1832,17 @@ const main = function() {
               // Top up the proxy contract
               await interaction.editReply({ content: `Ensuring there is enough funds on our contract...` });
 
-              const targetMultiplier = minRelativeCheapDepositCount * cheapDepositCount;
+              const targetMultiplier = BigInt(minRelativeCheapDepositCount) * BigInt(cheapDepositCount);
 
-              const targetBalance = validatorDepositCost.mul(targetMultiplier).add(
-                maxTransactionCost.mul(targetMultiplier));
+              const targetBalance = (validatorDepositCost * targetMultiplier) + (maxTransactionCost * targetMultiplier);
               const currentContractBalance = await holeskyProvider.getBalance(depositProxyContractHoleskyAddress);
 
-              if (targetBalance.gt(currentContractBalance)) {
-                const sendingAmount = targetBalance.sub(currentContractBalance);
+              if (targetBalance > currentContractBalance) {
+                const sendingAmount = targetBalance - currentContractBalance;
 
-                console.log(`Refilling proxy contract. Our target: ${utils.formatEther(targetBalance)}, ` +
-                  `current balance: ${utils.formatEther(currentContractBalance)}, ` +
-                  `sending amount: ${utils.formatEther(sendingAmount)}`);
+                console.log(`Refilling proxy contract. Our target: ${ethers.formatEther(targetBalance)}, ` +
+                  `current balance: ${ethers.formatEther(currentContractBalance)}, ` +
+                  `sending amount: ${ethers.formatEther(sendingAmount)}`);
 
                 await holeskyTransactionMutex.runExclusive(async () => {
                   const transaction = await holeskyWallet.sendTransaction({
@@ -1859,7 +1858,7 @@ const main = function() {
               // Send tokens to user
               await interaction.editReply({ content: `Whitelisting the wallet address for ${cheapDepositCount} cheap deposits...` });
 
-              const depositProxyContract = new Contract(depositProxyContractHoleskyAddress, depositProxyContractAbi, holeskyWallet);
+              const depositProxyContract = new ethers.Contract(depositProxyContractHoleskyAddress, depositProxyContractAbi, holeskyWallet);
               const targetTokenBalance = cheapDepositCount;
               const currentTokenBalance = await depositProxyContract.balanceOf(uniformedAddress, 0) as number;
               if (currentTokenBalance < targetTokenBalance) {
@@ -1870,7 +1869,7 @@ const main = function() {
                   `sending amount: ${sendingAmount}`);
 
                 await holeskyTransactionMutex.runExclusive(async () => {
-                  const transaction: providers.TransactionResponse = await depositProxyContract.safeTransferFrom(
+                  const transaction: ethers.TransactionResponse = await depositProxyContract.safeTransferFrom(
                     holeskyWallet.address, uniformedAddress, 0, sendingAmount, Buffer.from(''));
                   await transaction.wait(1);
                 });
@@ -1879,15 +1878,15 @@ const main = function() {
               // Top up user wallet
               await interaction.editReply({ content: `Ensuring you have enough funds in that wallet for the ${cheapDepositCount} cheap deposits...` });
 
-              const targetWalletBalance = cheapDepositCost.mul(cheapDepositCount).add(maxTransactionCost.mul(cheapDepositCount));
+              const targetWalletBalance = (cheapDepositCost * BigInt(cheapDepositCount)) + (maxTransactionCost * BigInt(cheapDepositCount));
               const currentWalletBalance = await holeskyProvider.getBalance(uniformedAddress);
 
-              if (targetWalletBalance.gt(currentWalletBalance)) {
-                const sendingAmount = targetWalletBalance.sub(currentWalletBalance);
+              if (targetWalletBalance > currentWalletBalance) {
+                const sendingAmount = targetWalletBalance - currentWalletBalance;
 
-                console.log(`Filling user wallet (${uniformedAddress}). Our target: ${utils.formatEther(targetWalletBalance)}, ` +
-                  `current balance: ${utils.formatEther(currentWalletBalance)}, ` +
-                  `sending amount: ${utils.formatEther(sendingAmount)}`);
+                console.log(`Filling user wallet (${uniformedAddress}). Our target: ${ethers.formatEther(targetWalletBalance)}, ` +
+                  `current balance: ${ethers.formatEther(currentWalletBalance)}, ` +
+                  `sending amount: ${ethers.formatEther(sendingAmount)}`);
 
                 await holeskyTransactionMutex.runExclusive(async () => {
                   const transaction = await holeskyWallet.sendTransaction({
