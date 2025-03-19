@@ -109,20 +109,33 @@ const main = function() {
 
     const sepoliaProvider = new ethers.InfuraProvider('sepolia', process.env.INFURA_API_KEY);
     const holeskyProvider = new ethers.JsonRpcProvider('https://rpc.holesky.ethstaker.cc/');
+    const hoodiProvider = new ethers.JsonRpcProvider('https://rpc.hoodi.ethpandaops.io/');
 
     const sepoliaTransactionMutex = new Mutex();
     const holeskyTransactionMutex = new Mutex();
+    const hoodiTransactionMutext = new Mutex();
 
     sepoliaProvider.getBlockNumber()
     .then((currentBlockNumber) => {
       console.log(`Sepolia RPC provider is at block number ${currentBlockNumber}.`);
+    })
+    .catch((error) => {
+      console.log(`${error} while trying to get block number from Sepolia provider.`);
     });
     holeskyProvider.getBlockNumber()
     .then((currentBlockNumber) => {
       console.log(`Holesky RPC provider is at block number ${currentBlockNumber}.`);
     })
     .catch((error) => {
-      console.log(`${error} while trying to get block number.`);
+      console.log(`${error} while trying to get block number from Holesky provider.`);
+    });
+
+    hoodiProvider.getBlockNumber()
+    .then((currentBlockNumber) => {
+      console.log(`Hoodi RPC provider is at block number ${currentBlockNumber}.`);
+    })
+    .catch((error) => {
+      console.log(`${error} while trying to get block number from Hoodi provider.`);
     });
 
     // Configuring the faucet commands
@@ -952,19 +965,6 @@ const main = function() {
         } else if (commandName === 'sepolia-eth-msg') {
           console.log(`${commandName} from ${userTag} (${userId})`);
 
-          const channelName = process.env.SEPOLIA_CHANNEL_NAME;
-          let channelMen = '';
-
-          if (channelName !== undefined && channelName !== '') {
-            const requestChannel = interaction.guild?.channels.cache.find((channel) => channel.name === channelName);
-            if (requestChannel !== undefined) {
-              channelMen = channelMention(requestChannel.id);
-            }
-          }
-
-          const brightIdMention = channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
-          const passportMention = channelMention(process.env.PASSPORT_CHANNEL_ID as string);
-
           let targetUser = 'You';
 
           const inputUser = interaction.options.getUser('user', false);
@@ -973,10 +973,8 @@ const main = function() {
           }
 
           const msg = (
-            `${targetUser} can request Sepolia ETH to test transactions on the Sepolia testnet on ${channelMen}` +
-            ` but first, you will need to be BrightID verified in ${brightIdMention} or Passport` +
-            ` verified in ${passportMention}. Alternatively` +
-            ` you can use these online faucets https://faucetlink.to/sepolia for ${userMen}`
+            `${targetUser} can use these online faucets https://faucetlink.to/sepolia to obtain ` +
+            `Sepolia ETH for ${userMen}`
             );
           
           interaction.reply({
@@ -1004,6 +1002,33 @@ const main = function() {
             `enable you to become a validator on Holesky for free. If you need ` +
             `Holesky ETH for any purpose, check out the great online faucets on ` +
             `<https://faucetlink.to/holesky> for ${targetUser}.`
+            );
+          
+          interaction.reply({
+            content: msg,
+            flags: MessageFlags.SuppressEmbeds
+          });
+
+        } else if (commandName === 'hoodi-msg') {
+          console.log(`${commandName} from ${userTag} (${userId})`);
+
+          const cheapHoodiValidatorMention = channelMention(process.env.CHEAP_HOODI_VALIDATOR_CHANNEL_ID as string);
+
+          let targetUser = 'You';
+
+          const inputUser = interaction.options.getUser('user', false);
+          if (inputUser !== null) {
+            targetUser = userMention(inputUser.id);
+          }
+
+          const msg = (
+            `If you want to perform your Hoodi validator deposit, use ` +
+            `${cheapHoodiValidatorMention} and the \`/cheap-hoodi-deposit\` slash command ` +
+            `(start typing the command and it will show up above your input box). This process ` +
+            `will not directly give you any meaningful amount of Holesky ETH, but it will ` +
+            `enable you to become a validator on Holesky for free. If you need ` +
+            `Hoodi ETH for any purpose, check out this great online faucet on ` +
+            `<https://hoodi-faucet.pk910.de/> for ${targetUser}.`
             );
           
           interaction.reply({

@@ -10,18 +10,13 @@ const guildId = process.env.DISCORD_GUILD_ID as string;
 const token = process.env.DISCORD_TOKEN as string;
 
 const commands = [
-  new SlashCommandBuilder()
-    .setName('request-sepolia-eth')
-    .setDescription('Request some funds for transactions on the Sepolia testnet to be transfered into your wallet.')
-    .addStringOption(option => option
-      .setName('address')
-      .setDescription('A valid Ethereum address. It can be a full address or an ENS.')
-      .setRequired(true)),
 	new SlashCommandBuilder().setName('ping').setDescription('Replies with pong!'),
   new SlashCommandBuilder().setName('queue-mainnet')
     .setDescription('Get validators activation and exit queue details from Mainnet.'),
   new SlashCommandBuilder().setName('queue-holesky')
     .setDescription('Get validators activation and exit queue details from Holesky testnet.'),
+  new SlashCommandBuilder().setName('queue-hoodi')
+    .setDescription('Get validators activation and exit queue details from Hoodi testnet.'),
   new SlashCommandBuilder().setName('participation-mainnet')
     .setDescription('Get the current participation rate on Mainnet.'),
   new SlashCommandBuilder()
@@ -46,11 +41,21 @@ const commands = [
       .setDescription('An optional user to ping with the message.')
       .setRequired(false)),
   new SlashCommandBuilder()
+    .setName('hoodi-msg')
+    .setDescription('Explain how to do a validator deposit or get ETH on Hoodi.')
+    .addUserOption(option => option
+      .setName('user')
+      .setDescription('An optional user to ping with the message.')
+      .setRequired(false)),
+  new SlashCommandBuilder()
     .setName('verify-passport')
     .setDescription('Verify your Gitcoin Passport created on https://passport.gitcoin.co/.'),
   new SlashCommandBuilder()
     .setName('cheap-holesky-deposit')
     .setDescription('Obtain some cheap and easy Holesky validator deposits.'),
+  new SlashCommandBuilder()
+    .setName('cheap-hoodi-deposit')
+    .setDescription('Obtain some cheap and easy Hoodi validator deposits.'),
 ]
 	.map(command => command.toJSON());
 
