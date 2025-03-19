@@ -2220,7 +2220,8 @@ const main = function() {
                 content: `You can now perform ${cheapDepositCount} cheap deposits on <https://holesky.launchpad.ethstaker.cc/> ` +
                 `with your wallet address \`${uniformedAddress}\`. Make sure to check out the guides and tools for configuring your ` +
                 `machine to run a validator on Holesky in ${officialLinksMen}.\n\nYou **must** set your withdrawal address to ` +
-                `\`0x4D496CcC28058B1D74B7a19541663E21154f9c84\` when creating your validator keys and your deposit file in order ` +
+                `\`0x4D496CcC28058B1D74B7a19541663E21154f9c84\` and use a type 1 (regular, non-compounding) validator ` +
+                `when creating your validator keys and your deposit file in order ` +
                 `to use this process and to complete your deposit. This is only required for this launchpad. When on Mainnet, you ` +
                 `should use a withdrawal address you control if you want to use one.\n\nPerforming this deposit transaction ` +
                 `can cost more in gas than the actual cheap deposit cost of 0.0001 Holesky ETH during time of high gas ` +
@@ -2514,7 +2515,8 @@ const main = function() {
                 content: `You can now perform ${cheapDepositCount} cheap deposits on <https://cheap.hoodi.launchpad.ethstaker.cc/> ` +
                 `with your wallet address \`${uniformedAddress}\`. Make sure to check out the guides and tools for configuring your ` +
                 `machine to run a validator on Hoodi in ${officialLinksMen}.\n\nYou **must** set your withdrawal address to ` +
-                `\`0x4D496CcC28058B1D74B7a19541663E21154f9c84\` when creating your validator keys and your deposit file in order ` +
+                `\`0x4D496CcC28058B1D74B7a19541663E21154f9c84\` and use a type 1 (regular, non-compounding) validator ` +
+                `when creating your validator keys and your deposit file in order ` +
                 `to use this process and to complete your deposit. This is only required for this launchpad. When on Mainnet, you ` +
                 `should use a withdrawal address you control if you want to use one.\n\nPerforming this deposit transaction ` +
                 `can cost more in gas than the actual cheap deposit cost of 0.0001 Hoodi ETH during time of high gas ` +
