@@ -1119,8 +1119,8 @@ const main = function() {
             `If you want to perform your Hoodi validator deposit, use ` +
             `${cheapHoodiValidatorMention} and the \`/cheap-hoodi-deposit\` slash command ` +
             `(start typing the command and it will show up above your input box). This process ` +
-            `will not directly give you any meaningful amount of Holesky ETH, but it will ` +
-            `enable you to become a validator on Holesky for free. If you need ` +
+            `will not directly give you any meaningful amount of Hoodi ETH, but it will ` +
+            `enable you to become a validator on Hoodi for free. If you need ` +
             `Hoodi ETH for any purpose, check out this great online faucet on ` +
             `<https://hoodi-faucet.pk910.de/> for ${targetUser}.`
             );
@@ -2202,6 +2202,9 @@ const main = function() {
 
                   await transaction.wait(1);
                 });
+              } else {
+                console.log(`User wallet (${uniformedAddress}) is already funded. Our target: ${ethers.formatEther(targetWalletBalance)}, ` +
+                  `current balance: ${ethers.formatEther(currentWalletBalance)}`);
               }
 
               // Storing the wallet address for the cheap deposits
@@ -2493,6 +2496,9 @@ const main = function() {
 
                   await transaction.wait(1);
                 });
+              } else {
+                console.log(`User wallet (${uniformedAddress}) is already funded. Our target: ${ethers.formatEther(targetWalletBalance)}, ` +
+                  `current balance: ${ethers.formatEther(currentWalletBalance)}`);
               }
 
               // Storing the wallet address for the cheap deposits
