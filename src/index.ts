@@ -32,6 +32,7 @@ const verifiedNewAccountDelay = Duration.fromObject({ days: 7 });
 const verifiedJoinedDiscordServerDelay = Duration.fromObject({ hours: 20 });
 
 const cheapDepositHoleskyDelay = Duration.fromObject({ days: 20 });
+const cheapDepositHoodiDelay = Duration.fromObject({ days: 20 });
 
 const restrictedRoles = new Set<string>(process.env.ROLE_IDS?.split(','));
 restrictedRoles.add(process.env.PASSPORT_ROLE_ID as string);
@@ -49,6 +50,7 @@ const PASSPORT_SCORE_URI = `https://api.scorer.gitcoin.co/registry/score/${proce
 const SUBMIT_PASSPORT_URI = 'https://api.scorer.gitcoin.co/registry/submit-passport';
 
 const depositProxyContractHoleskyAddress = process.env.PROXY_HOLESKY_DEPOSIT_CONTRACT as string;
+const depositProxyContractHoodiAddress = process.env.PROXY_HOODI_DEPOSIT_CONTRACT as string;
 const depositProxyContractAbi = [
   "function balanceOf(address,uint256) view returns (uint256)",
   "function safeTransferFrom(address,address,uint256,uint256,bytes)",
@@ -113,7 +115,7 @@ const main = function() {
 
     const sepoliaTransactionMutex = new Mutex();
     const holeskyTransactionMutex = new Mutex();
-    const hoodiTransactionMutext = new Mutex();
+    const hoodiTransactionMutex = new Mutex();
 
     sepoliaProvider.getBlockNumber()
     .then((currentBlockNumber) => {
@@ -142,7 +144,9 @@ const main = function() {
     const faucetCommandsConfig = new Map<string, networkConfig>();
 
     const holeskyWallet = new ethers.Wallet(process.env.FAUCET_PRIVATE_KEY as string, holeskyProvider);
+    const hoodiWallet = new ethers.Wallet(process.env.FAUCET_PRIVATE_KEY as string, hoodiProvider);
 
+    /*
     faucetCommandsConfig.set('request-sepolia-eth', {
       network: 'Sepolia',
       currency: 'Sepolia ETH',
@@ -159,7 +163,7 @@ const main = function() {
       provider: sepoliaProvider,
       transactionMutex: sepoliaTransactionMutex,
       needsVerification: true,
-    });
+    });*/
 
     // Logging faucet wallet balance and remaining requests
     faucetCommandsConfig.forEach((config, key, map) => {
@@ -264,6 +268,27 @@ const main = function() {
           });
 
           db.run(`CREATE UNIQUE INDEX IF NOT EXISTS cheap_deposit_holesky_userId on cheap_deposit_holesky ( userId );`, (error: Error | null) => {
+            if (error !== null) {
+              reject(error);
+              return;
+            }
+          });
+
+          db.run(`CREATE TABLE IF NOT EXISTS cheap_deposit_hoodi (walletAddress TEXT UNIQUE NOT NULL, userId TEXT UNIQUE NOT NULL, lastRequested INTEGER NOT NULL);`, (error: Error | null) => {
+            if (error !== null) {
+              reject(error);
+              return;
+            }
+          });
+
+          db.run(`CREATE UNIQUE INDEX IF NOT EXISTS cheap_deposit_hoodi_walletAddress on cheap_deposit_hoodi ( walletAddress );`, (error: Error | null) => {
+            if (error !== null) {
+              reject(error);
+              return;
+            }
+          });
+
+          db.run(`CREATE UNIQUE INDEX IF NOT EXISTS cheap_deposit_hoodi_userId on cheap_deposit_hoodi ( userId );`, (error: Error | null) => {
             if (error !== null) {
               reject(error);
               return;
@@ -410,6 +435,75 @@ const main = function() {
               });
             } else {
               db.run(`UPDATE cheap_deposit_holesky SET walletAddress = ?, lastRequested = ? WHERE userId = ?;`, walletAddress, lastRequested, userId, (error: Error | null) => {
+                if (error !== null) {
+                  reject(error);
+                  return;
+                }
+                resolve();
+              });
+            }
+          });
+        });
+      });
+    };
+
+    const getLastCheapDepositHoodiRequest = function(userId: string) {
+      return new Promise<lastCheapDepositRequest | null>(async (resolve, reject) => {
+        db.get(`SELECT walletAddress, lastRequested from cheap_deposit_hoodi WHERE userId = ?;`, userId, (error: Error | null, row: any ) => {
+          if (error !== null) {
+            reject(error);
+            return;
+          }
+          if (row === undefined) {
+            resolve(null);
+          } else {
+            const value = row as lastCheapDepositRequest;
+            resolve(value);
+          }
+        });
+      });
+    };
+
+    const isCheapDepositsHoodiWalletAlreadyUsed = function(walletAddress: string, userId: string) {
+      return new Promise<boolean>(async (resolve, reject) => {
+        db.get(`SELECT walletAddress from cheap_deposit_hoodi WHERE walletAddress = ? and userId != ?;`, walletAddress, userId, (error: Error | null, row: any ) => {
+          if (error !== null) {
+            reject(error);
+            return;
+          }
+          if (row === undefined) {
+            resolve(false);
+          } else {
+            resolve(true);
+          }
+        });
+      });
+    }
+
+    const storeCheapDepositsHoodi = function(walletAddress: string, userId: string) {
+      return new Promise<void>(async (resolve, reject) => {
+        db.serialize(() => {
+          let doInsert = true;
+          db.get(`SELECT walletAddress, lastRequested from cheap_deposit_hoodi WHERE userId = ?;`, userId, (error: Error | null, row: any ) => {
+            if (error !== null) {
+              reject(error);
+              return;
+            }
+            if (row !== undefined) {
+              doInsert = false;
+            }
+
+            const lastRequested = Math.floor(DateTime.utc().toMillis() / 1000);
+            if (doInsert) {
+              db.run(`INSERT INTO cheap_deposit_hoodi(walletAddress, userId, lastRequested) VALUES(?, ?, ?);`, walletAddress, userId, lastRequested, (error: Error | null) => {
+                if (error !== null) {
+                  reject(error);
+                  return;
+                }
+                resolve();
+              });
+            } else {
+              db.run(`UPDATE cheap_deposit_hoodi SET walletAddress = ?, lastRequested = ? WHERE userId = ?;`, walletAddress, lastRequested, userId, (error: Error | null) => {
                 if (error !== null) {
                   reject(error);
                   return;
@@ -1268,6 +1362,190 @@ const main = function() {
             components: [row]
           });
         
+        } else if (commandName === 'cheap-hoodi-deposit') {
+          console.log(`${commandName} from ${userTag} (${userId})`);
+
+          // Restrict command to channel
+          const restrictChannel = interaction.guild?.channels.cache.find((channel) => channel.id === process.env.CHEAP_HOODI_VALIDATOR_CHANNEL_ID);
+          if (restrictChannel !== undefined) {
+            if (interaction.channelId !== restrictChannel.id) {
+              const channelMen = channelMention(restrictChannel.id);
+              await interaction.reply({
+                content: `This is the wrong channel for this bot command (${commandName}). You should try in ${channelMen} for ${userMen}.`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`This is the wrong channel for this bot command (${commandName}). You should try in #${restrictChannel.name} for @${userTag} (${userId}).`);
+              return;
+            }
+          }
+
+          const userCreatedAt = interaction.user.createdTimestamp;
+          const userExistDuration = DateTime.utc().toMillis() - userCreatedAt;
+          const officialLinksMen = channelMention(process.env.OFFICIAL_LINKS_CHANNEL_ID as string);
+
+          const memberJoinedAt = (interaction.member as GuildMember).joinedTimestamp;
+          const memberDuration = DateTime.utc().toMillis() - (memberJoinedAt as number);
+
+          // Check for user role
+          await interaction.reply({ content: 'Checking if you have the proper role to speed up delay period...', ephemeral: true });
+          const hasRole = restrictedRoles.size === 0 || (interaction.member?.roles as GuildMemberRoleManager).cache.find((role) => restrictedRoles.has(role.id)) !== undefined;
+          if (!hasRole) {
+            const brightIdMention = channelMention(process.env.BRIGHTID_VERIFICATION_CHANNEL_ID as string);
+            const passportVerificationMention = channelMention(process.env.PASSPORT_CHANNEL_ID as string);
+
+            // Check for new accounts
+            await interaction.editReply({
+              content: `Checking if you have a new account...`
+            });
+            if (userExistDuration < newAccountDelay.toMillis()) {
+              await interaction.followUp({
+                content: `Your Discord account was just created. We need to ` +
+                        `restrict access for new accounts because of abuses. ` +
+                        `Please try again in a few days. You can speed this up ` +
+                        `by completing one of the verification processes in ` +
+                        `${brightIdMention} or in ${passportVerificationMention}. ` +
+                        `If you need ` +
+                        `Hoodi ETH, you should be using online faucets like ` +
+                        `the one you can find on <https://hoodi-faucet.pk910.de>. ` +
+                        `If you already have ` +
+                        `32 Hoodi ETH, you can use the official launchpad on ` +
+                        `<https://hoodi.launchpad.ethereum.org//>.\n` +
+                        `New accounts generally do not come directly asking for cheap deposits. ` +
+                        `You might want to check out the guides and tools that exist for configuring ` +
+                        `your machine to run a validator on Hoodi in ${officialLinksMen} first for ${userMen}.`,
+              });
+              reject(`Your Discord account was just created. We need to restrict access for new accounts because of abuses. Please try again in a few days for ${userTag} (${userId})`);
+              return;
+            }
+
+            // Check for new guild member
+            await interaction.editReply({
+              content: `Checking if you recently joined the EthStaker Discord server...`
+            });
+            if (memberDuration < joinedDiscordServerDelay.toMillis()) {
+              await interaction.followUp({
+                content: `You just joined the EthStaker Discord server. We need to ` +
+                        `restrict access for members who just joined because of abuses. ` +
+                        `Please try again in a few days. You can speed this up ` +
+                        `by completing one of the verification processes in ` +
+                        `${brightIdMention} or in ${passportVerificationMention}. ` +
+                        `If you need ` +
+                        `Hoodi ETH, you should be using online faucets like ` +
+                        `the one you can find on <https://hoodi-faucet.pk910.de>. ` +
+                        `If you already have ` +
+                        `32 Hoodi ETH, you can use the official launchpad on ` +
+                        `<https://hoodi.launchpad.ethereum.org//>.\n` +
+                        `New members generally do not come directly asking for cheap deposits. ` +
+                        `You might want to check out the guides and tools that exist for configuring ` +
+                        `your machine to run a validator on Hoodi in ${officialLinksMen} first for ${userMen}.`,
+              });
+              reject(`You just joined the EthStaker Discord server. We need to restrict access for members who just joined because of abuses. Please try again in a few days for ${userTag} (${userId})`);
+              return;
+            }
+          } else {
+
+            // Check for new accounts
+            await interaction.editReply({
+              content: `Checking if you have a new account...`
+            });
+            if (userExistDuration < verifiedNewAccountDelay.toMillis()) {
+              await interaction.followUp({
+                content: `Your Discord account was just created. We need to ` +
+                        `restrict access for new accounts because of abuses. ` +
+                        `Please try again in a few days. If you need ` +
+                        `Hoodi ETH, you should be using online faucets like ` +
+                        `the one you can find on <https://hoodi-faucet.pk910.de>. ` +
+                        `If you already have ` +
+                        `32 Hoodi ETH, you can use the official launchpad on ` +
+                        `<https://hoodi.launchpad.ethereum.org//>.\n` +
+                        `New accounts generally do not come directly asking for cheap deposits. ` +
+                        `You might want to check out the guides and tools that exist for configuring ` +
+                        `your machine to run a validator on Hoodi in ${officialLinksMen} first for ${userMen}.`,
+              });
+              reject(`Your verified Discord account was just created. We need to restrict access for new accounts because of abuses. Please try again in a few days for ${userTag} (${userId})`);
+              return;
+            }
+
+            // Check for new guild member
+            await interaction.editReply({
+              content: `Checking if you recently joined the EthStaker Discord server...`
+            });
+            if (memberDuration < verifiedJoinedDiscordServerDelay.toMillis()) {
+              await interaction.followUp({
+                content: `You just joined the EthStaker Discord server. We need to ` +
+                        `restrict access for members who just joined because of abuses. ` +
+                        `Please try again in a few days. If you need ` +
+                        `Hoodi ETH, you should be using online faucets like ` +
+                        `the one you can find on <https://hoodi-faucet.pk910.de>. ` +
+                        `If you already have ` +
+                        `32 Hoodi ETH, you can use the official launchpad on ` +
+                        `<https://hoodi.launchpad.ethereum.org//>.\n` +
+                        `New members generally do not come directly asking for cheap deposits. ` +
+                        `You might want to check out the guides and tools that exist for configuring ` +
+                        `your machine to run a validator on Hoodi in ${officialLinksMen} first for ${userMen}.`,
+              });
+              reject(`You just joined the EthStaker Discord server with verification. We need to restrict access for members who just joined because of abuses. Please try again in a few days for ${userTag} (${userId})`);
+              return;
+            }
+
+          }
+
+          // Check if the user already has been given cheap deposits recently.
+          await interaction.editReply({
+            content: 'Checking if you are rate-limited...'
+          });
+          const lastRequest = await getLastCheapDepositHoodiRequest(userId);
+          let newRequestPart = '';
+          if (lastRequest !== null) {
+            const dtLastRequested = DateTime.fromMillis(lastRequest.lastRequested * 1000);
+            const dtRequestAvailable = dtLastRequested.plus(cheapDepositHoodiDelay);
+
+            let durRequestAvailable = dtRequestAvailable.diff(DateTime.utc()).shiftTo('days', 'hours').normalize();
+            if (durRequestAvailable.days === 0) {
+              durRequestAvailable = durRequestAvailable.shiftTo('hours', 'minutes');
+            }
+            const formattedDuration = durRequestAvailable.toHuman();
+
+            if (DateTime.utc() < dtRequestAvailable) {
+              await interaction.followUp({
+                content: `You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again. If you already have 32 Hoodi ETH, you can use the official launchpad on <https://hoodi.launchpad.ethereum.org/> for ${userMen}.`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for @${userTag} (${userId}).`);
+              return;
+            } else {
+              let negDurRequestAvailable = durRequestAvailable.negate().shiftTo('days', 'hours').normalize();
+              if (negDurRequestAvailable.days === 0) {
+                negDurRequestAvailable = negDurRequestAvailable.shiftTo('hours', 'minutes');
+              }
+              const newRequestFormattedDuration = negDurRequestAvailable.toHuman();
+
+              newRequestPart = ` Your new request was available ${newRequestFormattedDuration} ago.`;
+              if (negDurRequestAvailable.toMillis() <= quickNewRequest.toMillis()) {
+                newRequestPart = newRequestPart.concat(` That was a quick new request! You should consider leaving some for the others.`);
+              }
+            }
+          }
+
+          const my_request = { requested_message: `My Discord user ${userTag} (${userId}) has access to this wallet address.` };
+          const url_safe_string = encodeURIComponent( JSON.stringify( my_request ) );
+          const base64_encoded = Buffer.from(url_safe_string).toString('base64').replace('+', '-').replace('/', '_').replace(/=+$/, '');
+          const signer_is_url = `https://signer.is/#/sign/${ base64_encoded }`;
+
+          const row = new ActionRowBuilder<ButtonBuilder>()
+            .addComponents(new ButtonBuilder()
+              .setCustomId('sendSignatureForCheapDepositsHoodi')
+              .setStyle(ButtonStyle.Primary)
+              .setLabel('Enter Signature'));
+
+          await interaction.editReply({
+            content: `Click on [this Signer.is link](${signer_is_url}) and sign the requested message with the ` +
+                     `wallet address you want to use to perform your deposit on Hoodi to prove ` +
+                     `ownership. Once you are done signing, click the *Copy Link* button on Signer.is ` +
+                     `and click the **Enter Signature** button to paste your signature URL.`,
+            components: [row]
+          });
+        
         } else {
           reject(`Unknown command: ${commandName}`);
         }
@@ -1285,6 +1563,9 @@ const main = function() {
 
     const existingCheapDepositsHoleskyUserRequest = new Map<string, boolean>();
     const existingCheapDepositsHoleskyWalletRequest = new Map<string, boolean>();
+
+    const existingCheapDepositsHoodiUserRequest = new Map<string, boolean>();
+    const existingCheapDepositsHoodiWalletRequest = new Map<string, boolean>();
 
     const existingVerificationUserRequest = new Map<string, boolean>();
     const existingVerificationWalletRequest = new Map<string, boolean>();
@@ -1956,6 +2237,297 @@ const main = function() {
             existingCheapDepositsHoleskyUserRequest.delete(userId);
           }
 
+        } else if (interaction.customId === 'ownerCheapDepositsHoodiVerify') {
+
+          // Check if the user already has been given cheap deposits recently.
+          const lastRequest = await getLastCheapDepositHoodiRequest(userId);
+          let newRequestPart = '';
+          if (lastRequest !== null) {
+            const dtLastRequested = DateTime.fromMillis(lastRequest.lastRequested * 1000);
+            const dtRequestAvailable = dtLastRequested.plus(cheapDepositHoodiDelay);
+
+            let durRequestAvailable = dtRequestAvailable.diff(DateTime.utc()).shiftTo('days', 'hours').normalize();
+            if (durRequestAvailable.days === 0) {
+              durRequestAvailable = durRequestAvailable.shiftTo('hours', 'minutes');
+            }
+            const formattedDuration = durRequestAvailable.toHuman();
+
+            if (DateTime.utc() < dtRequestAvailable) {
+              await interaction.followUp({
+                content: `You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for ${userMen}.`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for @${userTag} (${userId}).`);
+              return;
+            } else {
+              let negDurRequestAvailable = durRequestAvailable.negate().shiftTo('days', 'hours').normalize();
+              if (negDurRequestAvailable.days === 0) {
+                negDurRequestAvailable = negDurRequestAvailable.shiftTo('hours', 'minutes');
+              }
+              const newRequestFormattedDuration = negDurRequestAvailable.toHuman();
+
+              newRequestPart = ` Your new request was available ${newRequestFormattedDuration} ago.`;
+              if (negDurRequestAvailable.toMillis() <= quickNewRequest.toMillis()) {
+                newRequestPart = newRequestPart.concat(` That was a quick new request! You should consider leaving some for the others.`);
+              }
+            }
+          }
+
+          // Mutex on User ID
+          if (existingCheapDepositsHoodiUserRequest.get(userId) === true) {
+            await interaction.reply({
+              content: `You already have a pending cheap deposits request. Please wait until your request is completed for ${userMen}.`,
+              allowedMentions: { parse: ['users'], repliedUser: false }
+            });
+            reject(`You already have a pending cheap deposits request. Please wait until your request is completed for @${userTag} (${userId}).`);
+            return;
+          } else {
+            existingCheapDepositsHoodiUserRequest.set(userId, true);
+          }
+
+          try {
+
+            const signature = interaction.fields.getTextInputValue('signatureInput');
+
+            // Validate signature
+            await interaction.reply({ content: `Validating signature...`, ephemeral: true});
+            
+            const signatureRegexMatch = signature.match(/https\:\/\/signer\.is(\/#)?\/verify\/(?<signature>[A-Za-z0-9=]+)/);
+            if (signatureRegexMatch === null) {
+              await interaction.followUp({
+                content: `This is not a valid signature from Signer.is. Make sure to paste the full sharable link after signing the message. Clicking the *Copy link* button and pasting the result is the easiest way. Please try again for ${userMen}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`Invalid signature. ${signature} ${userTag} (${userId})`);
+              return;
+            }
+
+            const encodedSignature = signatureRegexMatch.groups?.signature;
+            if (encodedSignature === undefined) {
+              await interaction.followUp({
+                content: `Unable to parse signature from Signer.is. Make sure to paste the full sharable link after signing the message. Clicking the *Copy link* button and pasting the result is the easiest way. Please try again for ${userMen}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`Invalid signature. Unable to parse. ${signature} ${userTag} (${userId})`);
+              return;
+            }
+
+            // Decode signature
+            let signatureElements: any | null = null;
+            try {
+              signatureElements = JSON.parse(decodeURIComponent(Buffer.from(encodedSignature, 'base64').toString()));
+            } catch (error) {
+              await interaction.followUp({
+                content: `Unable to parse signature JSON from Signer.is ${error}. Make sure to paste the full sharable link after signing the message. Clicking the *Copy link* button and pasting the result is the easiest way. Please try again for ${userMen}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`Invalid signature. Unable to parse JSON. ${signature} ${error} ${userTag} (${userId})`);
+              return;
+            }
+              
+            const decodedSignature = signatureElements as signatureStructure;
+
+            if (
+              decodedSignature.claimed_message === undefined ||
+              decodedSignature.claimed_signatory === undefined ||
+              decodedSignature.signed_message === undefined
+              ) {
+              await interaction.followUp({
+                content: `Unexpected structure in signature. Are you trying to meddle with the bot? Please try again for ${userMen}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`Unexpected structure in signature. ${signatureElements} ${userTag} (${userId})`);
+              return;
+            }
+
+            // Validate signed message
+            await interaction.editReply({ content: `Verifying signed message...` });
+
+            const messageRegexMatch = decodedSignature.claimed_message.match(/My Discord user .+? \((?<userId>[^\)]+)\) has access to this wallet address\./);
+            if (messageRegexMatch === null) {
+              await interaction.followUp({
+                content: `The signature does not contain the correct signed message. Please try again using the Signer.is link provided for ${userMen}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`Invalid signed message. ${decodedSignature.claimed_message} ${userTag} (${userId})`);
+              return;
+            }
+
+            const signedMessageUserId = messageRegexMatch.groups?.userId;
+            if (signedMessageUserId === undefined) {
+              await interaction.followUp({
+                content: `Unable to parse signed message from Signer.is. Please try again for ${userMen}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`Invalid signed message. Unable to parse. ${decodedSignature.claimed_message} ${userTag} (${userId})`);
+              return;
+            }
+
+            if (signedMessageUserId !== userId) {
+              await interaction.followUp({
+                content: `The user ID included in the signed message does not match your Discord user ID. Please try again using the Signer.is link provided for ${userMen}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`User ID mismatch from the signed message. Expected ${userId} but got ${signedMessageUserId}. ${userTag} (${userId})`);
+              return;
+            }
+
+            const confirmedSignatory = ethers.verifyMessage( decodedSignature.claimed_message, decodedSignature.signed_message ).toLowerCase();
+            const validSignature = confirmedSignatory.toLowerCase() === decodedSignature.claimed_signatory.toLowerCase();
+
+            if (!validSignature) {
+              await interaction.followUp({
+                content: `This is not a valid signature from Signer.is. Please try again using the Signer.is link provided for ${userMen}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`Not a valid signature after verifying the message for ${userTag} (${userId})`);
+              return;
+            }
+
+            // Verify if that wallet address is valid
+            await interaction.editReply({ content: `Verifying wallet address...` });
+            
+            if (!ethers.isAddress(decodedSignature.claimed_signatory)) {
+              await interaction.followUp({
+                content: `The included wallet address in your signature (${decodedSignature.claimed_signatory}) is not valid for ${userMen}`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`The included wallet address in the signature (${decodedSignature.claimed_signatory}) is not valid for ${userTag} (${userId})`);
+              return;
+            }
+
+            // Mutex on wallet address
+            const uniformedAddress = ethers.getAddress(decodedSignature.claimed_signatory);
+
+            if (existingCheapDepositsHoodiWalletRequest.get(uniformedAddress) === true) {
+              await interaction.followUp({
+                content: `There is already a pending cheap deposits request for this wallet address (${uniformedAddress}). Please wait until that request is completed for ${userMen}.`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`There is already a pending cheap deposits request for this wallet address (${uniformedAddress}). Please wait until that request is completed for @${userTag} (${userId}).`);
+              return;
+            } else {
+              existingCheapDepositsHoodiWalletRequest.set(uniformedAddress, true);
+            }
+
+            try {
+
+              // Verify if that wallet address is not already associated with another Discord user
+              await interaction.editReply({ content: `Verifying if this wallet address was already used by another Discord user...` });
+
+              const walletAlreadyUsed = await isCheapDepositsHoodiWalletAlreadyUsed(uniformedAddress, userId);
+
+              if (walletAlreadyUsed) {
+                await interaction.followUp({
+                  content: `This this wallet address (${uniformedAddress}) was already used with a different Discord user. Please try again with a different wallet address for ${userMen}.`,
+                  allowedMentions: { parse: ['users'], repliedUser: false }
+                });
+                reject(`This this wallet address (${uniformedAddress}) was already used with a different Discord user. Please try again with a different wallet address for @${userTag} (${userId}).`);
+                return;
+              }
+
+              // Top up the proxy contract
+              await interaction.editReply({ content: `Ensuring there is enough funds on our contract...` });
+
+              const targetMultiplier = BigInt(minRelativeCheapDepositCount) * BigInt(cheapDepositCount);
+
+              const targetBalance = (validatorDepositCost * targetMultiplier) + (maxTransactionCost * targetMultiplier);
+              const currentContractBalance = await hoodiProvider.getBalance(depositProxyContractHoodiAddress);
+
+              if (targetBalance > currentContractBalance) {
+                const sendingAmount = targetBalance - currentContractBalance;
+
+                console.log(`Refilling proxy contract. Our target: ${ethers.formatEther(targetBalance)}, ` +
+                  `current balance: ${ethers.formatEther(currentContractBalance)}, ` +
+                  `sending amount: ${ethers.formatEther(sendingAmount)}`);
+
+                await hoodiTransactionMutex.runExclusive(async () => {
+                  const transaction = await hoodiWallet.sendTransaction({
+                    to: depositProxyContractHoodiAddress,
+                    value: sendingAmount
+                  });
+
+                  await transaction.wait(1);
+                });
+                
+              }
+
+              // Send tokens to user
+              await interaction.editReply({ content: `Whitelisting the wallet address for ${cheapDepositCount} cheap deposits...` });
+
+              const depositProxyContract = new ethers.Contract(depositProxyContractHoodiAddress, depositProxyContractAbi, hoodiWallet);
+              const targetTokenBalance = BigInt(cheapDepositCount);
+              const currentTokenBalance = await depositProxyContract.balanceOf(uniformedAddress, 0) as bigint;
+              if (currentTokenBalance < targetTokenBalance) {
+                const sendingAmount = targetTokenBalance - currentTokenBalance;
+
+                console.log(`Sending cheap deposits tokens to user (${uniformedAddress}). Our target: ${targetTokenBalance}, ` +
+                  `current balance: ${currentTokenBalance}, ` +
+                  `sending amount: ${sendingAmount}`);
+
+                await hoodiTransactionMutex.runExclusive(async () => {
+                  const transaction: ethers.TransactionResponse = await depositProxyContract.safeTransferFrom(
+                    hoodiWallet.address, uniformedAddress, 0, sendingAmount, Buffer.from(''));
+                  await transaction.wait(1);
+                });
+              }
+
+              // Top up user wallet
+              await interaction.editReply({ content: `Ensuring you have enough funds in that wallet for the ${cheapDepositCount} cheap deposits...` });
+
+              const targetWalletBalance = (cheapDepositCost * BigInt(cheapDepositCount)) + (maxTransactionCost * BigInt(cheapDepositCount));
+              const currentWalletBalance = await hoodiProvider.getBalance(uniformedAddress);
+
+              if (targetWalletBalance > currentWalletBalance) {
+                const sendingAmount = targetWalletBalance - currentWalletBalance;
+
+                console.log(`Filling user wallet (${uniformedAddress}). Our target: ${ethers.formatEther(targetWalletBalance)}, ` +
+                  `current balance: ${ethers.formatEther(currentWalletBalance)}, ` +
+                  `sending amount: ${ethers.formatEther(sendingAmount)}`);
+
+                await hoodiTransactionMutex.runExclusive(async () => {
+                  const transaction = await hoodiWallet.sendTransaction({
+                    to: uniformedAddress,
+                    value: sendingAmount
+                  });
+
+                  await transaction.wait(1);
+                });
+              }
+
+              // Storing the wallet address for the cheap deposits
+              await interaction.editReply({ content: `Storing your information...` });
+
+              await storeCheapDepositsHoodi(uniformedAddress, userId);
+
+              await interaction.editReply({ content: `Completed.` });
+
+              const officialLinksMen = channelMention(process.env.OFFICIAL_LINKS_CHANNEL_ID as string);
+
+              await interaction.followUp({
+                content: `You can now perform ${cheapDepositCount} cheap deposits on <https://cheap.hoodi.launchpad.ethstaker.cc/> ` +
+                `with your wallet address \`${uniformedAddress}\`. Make sure to check out the guides and tools for configuring your ` +
+                `machine to run a validator on Hoodi in ${officialLinksMen}.\n\nYou **must** set your withdrawal address to ` +
+                `\`0x4D496CcC28058B1D74B7a19541663E21154f9c84\` when creating your validator keys and your deposit file in order ` +
+                `to use this process and to complete your deposit. This is only required for this launchpad. When on Mainnet, you ` +
+                `should use a withdrawal address you control if you want to use one.\n\nPerforming this deposit transaction ` +
+                `can cost more in gas than the actual cheap deposit cost of 0.0001 Hoodi ETH during time of high gas ` +
+                `price. If you end up in this situation, you can either try to obtain more Hoodi ETH from ` +
+                `<https://hoodi-faucet.pk910.de>, you can wait until gas price come down (see <https://hoodi.beaconcha.in/gasnow> ` +
+                `to monitor gas price on Hoodi) or you can broadcast your transaction with a custom low gas price and wait until ` +
+                `it is picked up by the network for ${userMen}.`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              resolve();
+
+            } finally {
+              existingCheapDepositsHoodiWalletRequest.delete(uniformedAddress);
+            }
+
+          } finally {
+            existingCheapDepositsHoodiUserRequest.delete(userId);
+          }
+
         } else {
           reject(`Unknown modal submission: ${interaction.customId}`);
         }
@@ -2034,6 +2606,56 @@ const main = function() {
 
           const modal = new ModalBuilder()
             .setCustomId('ownerCheapDepositsHoleskyVerify')
+            .setTitle('Wallet ownership');
+
+          const signatureInput = new TextInputBuilder()
+            .setCustomId('signatureInput')
+            .setLabel("Paste your signature URL here.")
+            .setStyle(TextInputStyle.Paragraph);
+
+          const firstActionRow = new ActionRowBuilder<TextInputBuilder>().addComponents(signatureInput);
+          modal.addComponents(firstActionRow);
+
+          await interaction.showModal(modal);
+
+        } else if (interaction.customId === 'sendSignatureForCheapDepositsHoodi') {
+
+          // Check if the user already has been given cheap deposits recently.
+          const lastRequest = await getLastCheapDepositHoodiRequest(userId);
+          let newRequestPart = '';
+          if (lastRequest !== null) {
+            const dtLastRequested = DateTime.fromMillis(lastRequest.lastRequested * 1000);
+            const dtRequestAvailable = dtLastRequested.plus(cheapDepositHoodiDelay);
+
+            let durRequestAvailable = dtRequestAvailable.diff(DateTime.utc()).shiftTo('days', 'hours').normalize();
+            if (durRequestAvailable.days === 0) {
+              durRequestAvailable = durRequestAvailable.shiftTo('hours', 'minutes');
+            }
+            const formattedDuration = durRequestAvailable.toHuman();
+
+            if (DateTime.utc() < dtRequestAvailable) {
+              await interaction.reply({
+                content: `You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for ${userMen}.`,
+                allowedMentions: { parse: ['users'], repliedUser: false }
+              });
+              reject(`You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for @${userTag} (${userId}).`);
+              return;
+            } else {
+              let negDurRequestAvailable = durRequestAvailable.negate().shiftTo('days', 'hours').normalize();
+              if (negDurRequestAvailable.days === 0) {
+                negDurRequestAvailable = negDurRequestAvailable.shiftTo('hours', 'minutes');
+              }
+              const newRequestFormattedDuration = negDurRequestAvailable.toHuman();
+
+              newRequestPart = ` Your new request was available ${newRequestFormattedDuration} ago.`;
+              if (negDurRequestAvailable.toMillis() <= quickNewRequest.toMillis()) {
+                newRequestPart = newRequestPart.concat(` That was a quick new request! You should consider leaving some for the others.`);
+              }
+            }
+          }
+
+          const modal = new ModalBuilder()
+            .setCustomId('ownerCheapDepositsHoodiVerify')
             .setTitle('Wallet ownership');
 
           const signatureInput = new TextInputBuilder()
