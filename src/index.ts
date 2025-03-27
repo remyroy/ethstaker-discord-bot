@@ -109,21 +109,12 @@ const main = function() {
       console.log(`Mainnet RPC provider is at block number ${currentBlockNumber}.`);
     });
 
-    const sepoliaProvider = new ethers.InfuraProvider('sepolia', process.env.INFURA_API_KEY);
-    const holeskyProvider = new ethers.JsonRpcProvider('https://rpc.holesky.ethstaker.cc/');
-    const hoodiProvider = new ethers.JsonRpcProvider('https://rpc.hoodi.ethpandaops.io/');
+    const holeskyProvider = new ethers.JsonRpcProvider(process.env.HOLESKY_RPC_ENDPOINT);
+    const hoodiProvider = new ethers.JsonRpcProvider(process.env.HOODI_RPC_ENDPOINT);
 
-    const sepoliaTransactionMutex = new Mutex();
     const holeskyTransactionMutex = new Mutex();
     const hoodiTransactionMutex = new Mutex();
 
-    sepoliaProvider.getBlockNumber()
-    .then((currentBlockNumber) => {
-      console.log(`Sepolia RPC provider is at block number ${currentBlockNumber}.`);
-    })
-    .catch((error) => {
-      console.log(`${error} while trying to get block number from Sepolia provider.`);
-    });
     holeskyProvider.getBlockNumber()
     .then((currentBlockNumber) => {
       console.log(`Holesky RPC provider is at block number ${currentBlockNumber}.`);
