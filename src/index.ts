@@ -1225,7 +1225,7 @@ const main = function() {
                         `those you can find on <https://faucetlink.to/holesky>. ` +
                         `If you already have ` +
                         `32 Holesky ETH, you can use the official launchpad on ` +
-                        `<https://holesky.launchpad.ethereum.org/>.\n` +
+                        `<https://holesky.launchpad.ethereum.org>.\n` +
                         `New accounts generally do not come directly asking for cheap deposits. ` +
                         `You might want to check out the guides and tools that exist for configuring ` +
                         `your machine to run a validator on Holesky in ${officialLinksMen} first for ${userMen}.`,
@@ -1250,7 +1250,7 @@ const main = function() {
                         `those you can find on <https://faucetlink.to/holesky>. ` +
                         `If you already have ` +
                         `32 Holesky ETH, you can use the official launchpad on ` +
-                        `<https://holesky.launchpad.ethereum.org/>.\n` +
+                        `<https://holesky.launchpad.ethereum.org>.\n` +
                         `New members generally do not come directly asking for cheap deposits. ` +
                         `You might want to check out the guides and tools that exist for configuring ` +
                         `your machine to run a validator on Holesky in ${officialLinksMen} first for ${userMen}.`,
@@ -1273,7 +1273,7 @@ const main = function() {
                         `those you can find on <https://faucetlink.to/holesky>. ` +
                         `If you already have ` +
                         `32 Holesky ETH, you can use the official launchpad on ` +
-                        `<https://holesky.launchpad.ethereum.org/>.\n` +
+                        `<https://holesky.launchpad.ethereum.org>.\n` +
                         `New accounts generally do not come directly asking for cheap deposits. ` +
                         `You might want to check out the guides and tools that exist for configuring ` +
                         `your machine to run a validator on Holesky in ${officialLinksMen} first for ${userMen}.`,
@@ -1295,7 +1295,7 @@ const main = function() {
                         `those you can find on <https://faucetlink.to/holesky>. ` +
                         `If you already have ` +
                         `32 Holesky ETH, you can use the official launchpad on ` +
-                        `<https://holesky.launchpad.ethereum.org/>.\n` +
+                        `<https://holesky.launchpad.ethereum.org>.\n` +
                         `New members generally do not come directly asking for cheap deposits. ` +
                         `You might want to check out the guides and tools that exist for configuring ` +
                         `your machine to run a validator on Holesky in ${officialLinksMen} first for ${userMen}.`,
@@ -1324,7 +1324,7 @@ const main = function() {
 
             if (DateTime.utc() < dtRequestAvailable) {
               await interaction.followUp({
-                content: `You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again. If you already have 32 Holesky ETH, you can use the official launchpad on <https://holesky.launchpad.ethereum.org/> for ${userMen}.`,
+                content: `You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again. If you already have 32 Holesky ETH, you can use the official launchpad on <https://holesky.launchpad.ethereum.org> for ${userMen}.`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
               });
               reject(`You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for @${userTag} (${userId}).`);
@@ -1409,7 +1409,7 @@ const main = function() {
                         `the one you can find on <https://hoodi-faucet.pk910.de>. ` +
                         `If you already have ` +
                         `32 Hoodi ETH, you can use the official launchpad on ` +
-                        `<https://hoodi.launchpad.ethereum.org//>.\n` +
+                        `<https://hoodi.launchpad.ethereum.org>.\n` +
                         `New accounts generally do not come directly asking for cheap deposits. ` +
                         `You might want to check out the guides and tools that exist for configuring ` +
                         `your machine to run a validator on Hoodi in ${officialLinksMen} first for ${userMen}.`,
@@ -1434,7 +1434,7 @@ const main = function() {
                         `the one you can find on <https://hoodi-faucet.pk910.de>. ` +
                         `If you already have ` +
                         `32 Hoodi ETH, you can use the official launchpad on ` +
-                        `<https://hoodi.launchpad.ethereum.org//>.\n` +
+                        `<https://hoodi.launchpad.ethereum.org>.\n` +
                         `New members generally do not come directly asking for cheap deposits. ` +
                         `You might want to check out the guides and tools that exist for configuring ` +
                         `your machine to run a validator on Hoodi in ${officialLinksMen} first for ${userMen}.`,
@@ -1457,7 +1457,7 @@ const main = function() {
                         `the one you can find on <https://hoodi-faucet.pk910.de>. ` +
                         `If you already have ` +
                         `32 Hoodi ETH, you can use the official launchpad on ` +
-                        `<https://hoodi.launchpad.ethereum.org//>.\n` +
+                        `<https://hoodi.launchpad.ethereum.org>.\n` +
                         `New accounts generally do not come directly asking for cheap deposits. ` +
                         `You might want to check out the guides and tools that exist for configuring ` +
                         `your machine to run a validator on Hoodi in ${officialLinksMen} first for ${userMen}.`,
@@ -1479,7 +1479,7 @@ const main = function() {
                         `the one you can find on <https://hoodi-faucet.pk910.de>. ` +
                         `If you already have ` +
                         `32 Hoodi ETH, you can use the official launchpad on ` +
-                        `<https://hoodi.launchpad.ethereum.org//>.\n` +
+                        `<https://hoodi.launchpad.ethereum.org>.\n` +
                         `New members generally do not come directly asking for cheap deposits. ` +
                         `You might want to check out the guides and tools that exist for configuring ` +
                         `your machine to run a validator on Hoodi in ${officialLinksMen} first for ${userMen}.`,
@@ -1508,7 +1508,7 @@ const main = function() {
 
             if (DateTime.utc() < dtRequestAvailable) {
               await interaction.followUp({
-                content: `You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again. If you already have 32 Hoodi ETH, you can use the official launchpad on <https://hoodi.launchpad.ethereum.org/> for ${userMen}.`,
+                content: `You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again. If you already have 32 Hoodi ETH, you can use the official launchpad on <https://hoodi.launchpad.ethereum.org> for ${userMen}.`,
                 allowedMentions: { parse: ['users'], repliedUser: false }
               });
               reject(`You cannot do another request this soon. You will need to wait at least ${formattedDuration} before you can request again for @${userTag} (${userId}).`);
